@@ -1,0 +1,7 @@
+*.ipynb
+OCLC_Authentication_examples.md
+response.json
+curlAPI.sh
+*.txt
+*.yaml
+oclc/
