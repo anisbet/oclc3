@@ -27,7 +27,7 @@ APP      = 'oclc'
 YAML     = 'epl_oclc.yaml'
 VERSION  = '0.00.01_dev'
 # TODO: Define workflow for comparing OCLC numbers at a library against OCLC holdings.
-# TODO: Load YAML
+# TODO: Manage authentication. See oclcws.py for more information.
 def usage():
     usage_text = f"""
     Usage: python {APP}.py [options]
@@ -36,10 +36,10 @@ def usage():
 
     This application uses YAML configurations found in {YAML}
 
-    -y --yaml="/foo/bar.yaml": Specify a different yaml configuration file.
     -h: Prints this help message.
     -v: Turns on verbose messaging which reports errors and
       other diagnostic information.
+    -y --yaml="/foo/bar.yaml": Specify a different yaml configuration file.
 
     Version: {VERSION} Copyright (c) 2023.
     """
@@ -60,9 +60,6 @@ def _read_yaml_(yaml_file:str):
             return yaml.safe_load(stream)
         except yaml.YAMLError as exc:
             print(exc)
-        except:
-            sys.stderr.write(f"**error while reading YAML configurations from '{yaml_file}'.\n")
-            sys.exit()
 
 def main(argv):
     is_verbose = False
@@ -72,13 +69,13 @@ def main(argv):
     except getopt.GetoptError:
         usage()
     for opt, arg in opts:
-        if opt in ("-y", "--yaml"):
-            assert isinstance(arg, str)
-            yaml = arg
-        elif opt in "-h":
+        if opt in "-h":
             usage()
         elif opt in "-v":
             is_verbose = True
+        elif opt in ("-y", "--yaml"):
+            assert isinstance(arg, str)
+            yaml = arg
     ##### End of cmd args.        
     config = _read_yaml_(yaml)
 
