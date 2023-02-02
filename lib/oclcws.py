@@ -109,7 +109,7 @@ class OclcService:
         """
         param_list = []
         count = 0
-        while len(numbers) > 0 and count <= max:
+        while len(numbers) > 0 and count < max:
             n = numbers.pop(0)
             # Don't add empty or Null values.
             if n == '' or n == None:
@@ -146,6 +146,7 @@ class OclcService:
     def _get_access_token_(self):
         expiry_deadline = '1900-01-01 00:00:00Z'
         if os.path.isfile(TOKEN_CACHE):
+            print(f"attempting to use cached auth.")
             with open(TOKEN_CACHE, 'r') as f:
                 self.auth_json = json.load(f)
             f.close()
