@@ -20,7 +20,10 @@
 import datetime
 import base64
 import requests
+import json
+import os
 
+TOKEN_CACHE = '_auth_.json'
 # TODO: Manage authentication.
 class OclcService:
 
@@ -30,7 +33,7 @@ class OclcService:
     # registryId:str='128807'
     # institutionalSymbol:str='CNEDM'
     # debug:bool=False
-    def __init__(self, configs:dict = {}, debug:bool = True):
+    def __init__(self, configs:dict = {}):
         self.client_id = ''
         self.secret = ''
         self.inst_id = ''
@@ -40,11 +43,11 @@ class OclcService:
             self.client_id   = configs.get('clientId')
             self.secret      = configs.get('secret')
             self.inst_id     = configs.get('registryId')
-            self.inst_symbol = configs.get('institutionId')
-            self.debug       = debug
+            self.inst_symbol = configs.get('institutionalSymbol')
+            self.debug       = configs.get('debug')
         except KeyError:
             pass # They will get set somewhere else or we are testing.
-        if self.client_id != '' and self.secret != '':
+        if len(self.client_id) > 0 and len(self.secret) > 0:
             self.auth_json = self._authenticate_worldcat_metadata_()
         # If successful the self.auth_json object will contain the following.
         # {
@@ -142,6 +145,10 @@ class OclcService:
     # Tests and refreshes authentication token.
     def _get_access_token_(self):
         expiry_deadline = '1900-01-01 00:00:00Z'
+        if os.path.isfile(TOKEN_CACHE):
+            with open(TOKEN_CACHE, 'r') as f:
+                self.auth_json = json.load(f)
+            f.close()
         try:
             expiry_deadline = self.auth_json['expires_at']
             if self._is_expired_(expiry_deadline) == True:
@@ -159,6 +166,10 @@ class OclcService:
             self._authenticate_worldcat_metadata_()
             if self.debug == True:
                 print(f"getting new auth token, expiry: {expiry_deadline}")
+        # Cache the results for repeated testing.
+        with open(TOKEN_CACHE, 'w', encoding='utf-8') as f:
+            # Use json.dump for streams files, or sockets and dumps for formatted strings.
+            json.dump(self.auth_json, f, ensure_ascii=False, indent=2)
         return self.auth_json['access_token']
 
     # Takes a list of OCLC numbers as integers, and removes the max allowed count for 
