@@ -5,3 +5,4 @@ curlAPI.sh
 *.txt
 *.yaml
 oclc/
+lib/__pycache__/

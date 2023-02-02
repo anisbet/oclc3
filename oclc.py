@@ -18,11 +18,15 @@
 # limitations under the License.
 #
 ###############################################################################
-import os, sys
+import os
+import sys
 import yaml
-import json
-
-TEST_MODE= True
+import getopt
+from lib.oclcws import OclcService
+# Make sure you set this to False in production.
+DEFAULT_SERVER='Test'
+# TEST_MODE= True
+TEST_MODE= False
 APP      = 'oclc'
 YAML     = 'epl_oclc.yaml'
 VERSION  = '0.00.01_dev'
@@ -36,9 +40,33 @@ def usage():
 
     This application uses YAML configurations found in {YAML}
 
+    Required yaml values:
+    Test: 
+        name:          "TEST_NAME"
+        clientId:      "Test client id from OCLC"
+        secret:        "Test secret"
+        registryId:    "128807"
+        principalId:   "hex string from OCLC Web Service Key management page"
+        principalIdns: "urn:oclc:wms:da"
+        institutionalSymbol: "OCPSB"
+    Production: 
+        name:          "PROD_NAME"
+        clientId:      "Test client id from OCLC"
+        secret:        "Test secret"
+        registryId:    "Production registry ID (integer)"
+        principalId:   "hex string"
+        principalIdns: "urn:oclc:platform:[registryId]"
+        institutionalSymbol: "ABC"
+    OCLC:
+        institutionalSymbol: "ABC"
+        host:          "oauth.oclc.org"
+
     -h: Prints this help message.
+    -n --num_file[/foo/bar.txt]: File containing OCLC numbers to check.
     -v: Turns on verbose messaging which reports errors and
       other diagnostic information.
+    -s --server="Test|Production": Gets the configuration for either the Test or
+      Production server from the yaml file.
     -y --yaml="/foo/bar.yaml": Specify a different yaml configuration file.
 
     Version: {VERSION} Copyright (c) 2023.
@@ -49,7 +77,7 @@ def usage():
 def _read_yaml_(yaml_file:str):
     """
     >>> c = _read_yaml_('epl_oclc.yaml')
-    >>> print(c['OCLC']['institutionId'])
+    >>> print(c['OCLC']['institutionalSymbol'])
     CNEDM
     """
     if os.path.isfile(yaml_file) == False:
@@ -62,22 +90,58 @@ def _read_yaml_(yaml_file:str):
             print(exc)
 
 def main(argv):
-    is_verbose = False
-    yaml       = YAML
+    verbose_mode     = False
+    yaml             = YAML
+    oclc_number_file = ''
+    oclc_numbers     = []
+    server           = DEFAULT_SERVER
     try:
-        opts, args = getopt.getopt(argv, "y:hv", ["yaml="])
+        opts, args = getopt.getopt(argv, "hn:s:vy:", ["num_file=", "server=", "yaml="])
     except getopt.GetoptError:
         usage()
     for opt, arg in opts:
         if opt in "-h":
             usage()
+        elif opt in ("-n", "--num_file"):
+            assert isinstance(arg, str)
+            if os.path.isfile(arg) == False:
+                sys.stderr.write(f"*error, no such OCLC number list file: '{arg}'.\n")
+                sys.exit()
+            oclc_number_file = arg
+            if verbose_mode:
+                print(f"oclc number file list: {oclc_number_file}")
+        elif opt in ("-s", "--server"):
+            assert isinstance(arg, str)
+            if arg == 'Test' or arg == 'Production':
+                server = arg
+            else:
+                print(f"*error, '{arg}' is not a valid server. See -h for more information.")
+                usage()
+            if verbose_mode:
+                print(f"server: {server}")
         elif opt in "-v":
-            is_verbose = True
+            verbose_mode = True
+            print(f"verbose mode {verbose_mode}")
         elif opt in ("-y", "--yaml"):
             assert isinstance(arg, str)
             yaml = arg
     ##### End of cmd args.        
-    config = _read_yaml_(yaml)
+    config = _read_yaml_(yaml)[server]
+    if verbose_mode:
+        print(f"config: '{config['name']}'")
+    # Read in a list of OCLC numbers if provided.
+    if oclc_number_file != '':
+        with open(oclc_number_file, encoding='utf8') as f:
+            for line in f:
+                oclc_numbers.append(line.strip())
+        f.close()
+    if verbose_mode and oclc_number_file != '':
+        print(f"OCLC numbers: {oclc_numbers}")
+    print(f"config is a {type(config)} :: {config}")
+    ws = OclcService(config)
+    results = ws.get_holdings(oclc_numbers)
+    print(f"result: {results[1]}")
+    print(f"and the list now contains: {results[0]}")
 
 if __name__ == "__main__":
     if TEST_MODE == True:
