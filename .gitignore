@@ -6,4 +6,7 @@ curlAPI.sh
 *.yaml
 oclc/
 lib/__pycache__/
-_auth_.json
+*.json
+*.sqlite
+*.xml
+*.db

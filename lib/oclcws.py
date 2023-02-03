@@ -218,13 +218,30 @@ class OclcService:
         # return the list of remaining OCLC numbers and JSON results.
         return [oclcNumbers, response.json()]
 
-    def delete_holdings(self, oclcNumbers:list):
+
+    def delete_holdings(self, oclcNumbers:list, cascade:int = 1):
+        # curl -X 'DELETE' \
+        # 'https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer tk_WrrQ0i6j2bfDmJKFGpNjaawJaRIjwfMgR3UR'
+        ## cascade
+        # Whether or not to execute the operation if a local holdings record, or local biblliographic record
+        # exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
+        # 1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
+        # Request URL
+        # https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB
         pass
 
     def update_holdings(self, records:dict):
         pass
 
     def create_holdings(self, records:dict):
+        # curl -X 'POST' \
+        # 'https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer tk_WrrQ0i6j2bfDmJKFGpNjaawJaRIjwfMgR3UR' \
+        # -d ''
+        # https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB
         pass
 
 if __name__ == "__main__":
