@@ -42,6 +42,14 @@ cat mixed.catkeys.90d.uniq.lst | catalogdump -kf035 -of | grep -v -i -e '\.250\.
 cat flat.wo.onorder.lst | flatskip -if -aMARC -om >mixed.mrc
 ```
 
+# XML Reference
+Ref
+* [https://www.loc.gov/standards/marcxml](https://www.loc.gov/standards/marcxml)
+* [https://www.loc.gov/standards/marcxml/xml/spy/spy.html](https://www.loc.gov/standards/marcxml/xml/spy/spy.html) 
+* [https://www.loc.gov/standards/marcxml/xml/collection.xml](https://www.loc.gov/standards/marcxml/xml/collection.xml) 
+## Schema
+* [https://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd](https://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd)
+
 ##
 This tool outputs catalog information about items, as an example:
 ```bash

@@ -136,6 +136,10 @@ class OclcRpt:
         if self.debug:
             print(f"loaded {count} records.")
 
+    # Selects all OCLC numbers that are marked missing.
+    def report_missing(self):
+        pass
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
