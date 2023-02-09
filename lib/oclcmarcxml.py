@@ -32,13 +32,20 @@ class MarcXML:
     """
     >>> m = MarcXML(["*** DOCUMENT BOUNDARY ***", ".000. |ajm a0c a", ".008. |a111222s2012    nyu||n|j|         | eng d", ".035.   |a(OCoLC)769144454", "*** DOCUMENT BOUNDARY ***"])
     >>> print(m)
-    <?xml version="1.0" encoding="UTF-8"?><record xmlns="http://www.loc.gov/MARC21/slim"><leader>jm a0c a</leader></record>
+    <?xml version="1.0" encoding="UTF-8"?>
+    <record xmlns="http://www.loc.gov/MARC21/slim">
+    <leader>jm a0c a</leader>
+    <controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
+    <datafield tag="035" ind1=" " ind2=" ">
+      <subfield code="a">(OCoLC)769144454</subfield>
+    </datafield>
+    </record>
     """
     def __init__(self, flat:list):
         new_doc = re.compile(r'\*\*\* DOCUMENT BOUNDARY \*\*\*')
         self.xml = []
         # Add declaration.
-        self.xml.append(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+        self.xml.append(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
         # record.append('<record xmlns="http://www.loc.gov/MARC21/slim">')
         record = []
         while flat:
@@ -106,24 +113,13 @@ class MarcXML:
         return (ind1,ind2)
 
 
-    def _get_subfields_(self, entry:str) -> str:
+    def _get_subfields_(self, entry:str) -> list:
         """
         >>> m = MarcXML([])
         >>> print(f"{m._get_subfields_('.040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW')}")
-        <datafield tag="040" ind1=" " ind2=" ">
-          <subfield code="a">TEFMT</subfield>
-          <subfield code="c">TEFMT</subfield>
-          <subfield code="d">TEF</subfield>
-          <subfield code="d">BKX</subfield>
-          <subfield code="d">EHH</subfield>
-          <subfield code="d">NYP</subfield>
-          <subfield code="d">UtOrBLW</subfield>
-        </datafield>
+        ['<datafield tag="040" ind1=" " ind2=" ">', '  <subfield code="a">TEFMT</subfield>', '  <subfield code="c">TEFMT</subfield>', '  <subfield code="d">TEF</subfield>', '  <subfield code="d">BKX</subfield>', '  <subfield code="d">EHH</subfield>', '  <subfield code="d">NYP</subfield>', '  <subfield code="d">UtOrBLW</subfield>', '</datafield>']
         >>> print(f"{m._get_subfields_('.050.  4|aM1997.F6384|bF47 2012')}")
-        <datafield tag="050" ind1=" " ind2="4">
-          <subfield code="a">M1997.F6384</subfield>
-          <subfield code="b">F47 2012</subfield>
-        </datafield>
+        ['<datafield tag="050" ind1=" " ind2="4">', '  <subfield code="a">M1997.F6384</subfield>', '  <subfield code="b">F47 2012</subfield>', '</datafield>']
         """
         # Given: '.040.  1 |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         tag           = self._get_tag_(entry)        # '040'
@@ -142,8 +138,8 @@ class MarcXML:
         for subfield in subfield_list:
             # ['TEFMT', ('c', 'TEFMT'), ('d', 'TEF'), ('d', 'BKX'), ('d', 'EHH'), ('d', 'NYP'), ('d', 'UtOrBLW')]
             tag_entries.append(f"  <subfield code=\"{subfield[0]}\">{subfield[1]}</subfield>")
-        tag_entries.append(f"</datafield>\n")
-        return '\n'.join(tag_entries)
+        tag_entries.append(f"</datafield>")
+        return tag_entries
 
     def _convert_(self, entries:list):
         # .000. |ajm a0c a
@@ -161,23 +157,30 @@ class MarcXML:
         # .040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW
         record = []
         if entries:
-            record.append(f"<record xmlns=\"http://www.loc.gov/MARC21/slim\">\n")
+            record.append(f"<record xmlns=\"http://www.loc.gov/MARC21/slim\">")
         for entry in entries:
             tag = self._get_tag_(entry)
             if tag == '000':
-                record.append(f"<leader>{self._get_fields_(entry, False)}</leader>\n")
+                record.append(f"<leader>{self._get_fields_(entry, False)}</leader>")
             elif tag == '008':
-                record.append(f"<controlfield tag=\"{tag}\">{self._get_fields_(entry, False)}</controlfield>\n")
+                record.append(f"<controlfield tag=\"{tag}\">{self._get_fields_(entry, False)}</controlfield>")
             else:
                 record.append(self._get_subfields_(entry))
-
         if entries:
             record.append(f"</record>")
         return record
 
+    def _recurse_(self, fix:list, lst):
+        for item in lst:
+            if isinstance(item, list):
+                self._recurse_(fix, item)
+            else:
+                fix.append(item)
+    
     def __str__(self) -> str:
-        return str.join('', [item for sublist in self.xml for item in sublist])
-        # return f"{self.xml}"
+        a = []
+        self._recurse_(a, self.xml)
+        return '\n'.join(a)
 
 
 if __name__ == "__main__":
