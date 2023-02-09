@@ -51,7 +51,7 @@ class OclcService:
             self.auth_json = self._authenticate_worldcat_metadata_()
         # If successful the self.auth_json object will contain the following.
         # {
-        # 'access_token': 'tk_1Vra5Gy2SqKqoyVyTPQFKB7HDPQ94IdiD3qs', 
+        # 'access_token': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
         # 'expires_at': '2023-01-31 20:17:26Z', 
         # 'authenticating_institution_id': '128807', 
         # 'principalID': '', 
@@ -131,7 +131,7 @@ class OclcService:
             print(f"{response.json()}")
         self.auth_json = response.json()
         # {
-        # 'access_token': 'tk_1Vra5Gy2SqKqoyVyTPQFKB7HDPQ94IdiD3qs', 
+        # 'access_token': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
         # 'expires_at': '2023-01-31 20:17:26Z', 
         # 'authenticating_institution_id': '128807', 
         # 'principalID': '', 
@@ -186,7 +186,7 @@ class OclcService:
         # curl -X 'POST' \
         #   'https://worldcat.org/ih/datalist?oclcNumbers=850939592,850939596&inst=128807&instSymbol=OCPSB' \
         #   -H 'accept: application/atom+json' \
-        #   -H 'Authorization: Bearer tk_bjUKlqeQ3TX04QtSpxgo3Vxhp2lLz3Fp32xD'
+        #   -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         oclc_nums_str = self._list_to_param_str_(oclcNumbers)
         url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={oclc_nums_str}"
         response = requests.get(url, headers=headers)
@@ -223,7 +223,7 @@ class OclcService:
         # curl -X 'DELETE' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+json' \
-        # -H 'Authorization: Bearer tk_WrrQ0i6j2bfDmJKFGpNjaawJaRIjwfMgR3UR'
+        # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         ## cascade
         # Whether or not to execute the operation if a local holdings record, or local biblliographic record
         # exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
@@ -239,7 +239,7 @@ class OclcService:
         # curl -X 'POST' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+json' \
-        # -H 'Authorization: Bearer tk_WrrQ0i6j2bfDmJKFGpNjaawJaRIjwfMgR3UR' \
+        # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
         # -d ''
         # https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB
         pass
