@@ -55,71 +55,157 @@ This tool outputs catalog information about items, as an example:
 ```bash
 head mixed.catkeys.90d.lst | xmlitem -iC -cf -e035,008,250 # Other tags can be added.
 ```
+### LOC MARC XML Full Example
+From Library of Congress [https://www.loc.gov/standards/marcxml/xml/collection.xml](https://www.loc.gov/standards/marcxml/xml/collection.xml)
+
 ```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<titles><record>
-<catalog>
-<marc primary_key="0|18557578|">
-<marc_field tag="035" label="DBCN">LSC2167473</marc_field><marc_field tag="008" label="Fixed field data">090818t20112009nyua   e b    001 0beng d</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18579075|">
-<marc_field tag="035" label="DBCN">LSC3020594</marc_field><marc_field tag="008" label="Fixed field data">160408s2016    onc    e b    000 0 eng</marc_field><marc_field tag="250" label="Edition">First edition.</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18578920|">
-<marc_field tag="035" label="DBCN">LSC3072940</marc_field><marc_field tag="008" label="Fixed field data">171020s2017    nyuab  e b    001 0 eng d</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18153232|">
-<marc_field tag="035" label="DBCN">LSC3124188</marc_field><marc_field tag="008" label="Fixed field data">221107s2022    xxc    e      001 0 eng</marc_field><marc_field tag="250" label="Edition">ON ORDER</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18563765|">
-<marc_field tag="035" label="DBCN">LSC3586037</marc_field><marc_field tag="008" label="Fixed field data">180907s2019    cau    e      000 0 eng</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18153234|">
-<marc_field tag="035" label="DBCN">LSC3673686</marc_field><marc_field tag="008" label="Fixed field data">221107s2022    xxc    e      001 0 eng</marc_field><marc_field tag="250" label="Edition">ON ORDER</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18641535|">
-<marc_field tag="035" label="DBCN">LSC3679913</marc_field><marc_field tag="008" label="Fixed field data">190425s2020    caua   e b    001 0 eng</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18153236|">
-<marc_field tag="035" label="DBCN">LSC3741897</marc_field><marc_field tag="008" label="Fixed field data">221107s2022    xxc    e      001 0 eng</marc_field><marc_field tag="250" label="Edition">ON ORDER</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18153237|">
-<marc_field tag="035" label="DBCN">LSC3853355</marc_field><marc_field tag="008" label="Fixed field data">221107s2022    xxu    e      001 0 eng</marc_field><marc_field tag="250" label="Edition">ON ORDER</marc_field></marc>
-</catalog>
-</record>
-<record>
-<catalog>
-<marc primary_key="0|18153238|">
-<marc_field tag="035" label="DBCN">LSC3875635</marc_field><marc_field tag="008" label="Fixed field data">221107s2022    xxc    e      001 0 eng</marc_field><marc_field tag="250" label="Edition">ON ORDER</marc_field></marc>
-</catalog>
-</record>
-</titles>
+<marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd">
+<marc:record>
+<marc:leader>00925njm 22002777a 4500</marc:leader>
+<marc:controlfield tag="001">5637241</marc:controlfield>
+<marc:controlfield tag="003">DLC</marc:controlfield>
+<marc:controlfield tag="005">19920826084036.0</marc:controlfield>
+<marc:controlfield tag="007">sdubumennmplu</marc:controlfield>
+<marc:controlfield tag="008">910926s1957 nyuuun eng </marc:controlfield>
+<marc:datafield tag="010" ind1=" " ind2=" ">
+<marc:subfield code="a"> 91758335 </marc:subfield>
+</marc:datafield>
+<marc:datafield tag="028" ind1="0" ind2="0">
+<marc:subfield code="a">1259</marc:subfield>
+<marc:subfield code="b">Atlantic</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="040" ind1=" " ind2=" ">
+<marc:subfield code="a">DLC</marc:subfield>
+<marc:subfield code="c">DLC</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="050" ind1="0" ind2="0">
+<marc:subfield code="a">Atlantic 1259</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="245" ind1="0" ind2="4">
+<marc:subfield code="a">The Great Ray Charles</marc:subfield>
+<marc:subfield code="h">[sound recording].</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="260" ind1=" " ind2=" ">
+<marc:subfield code="a">New York, N.Y. :</marc:subfield>
+<marc:subfield code="b">Atlantic,</marc:subfield>
+<marc:subfield code="c">[1957?]</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="300" ind1=" " ind2=" ">
+<marc:subfield code="a">1 sound disc :</marc:subfield>
+<marc:subfield code="b">analog, 33 1/3 rpm ;</marc:subfield>
+<marc:subfield code="c">12 in.</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="511" ind1="0" ind2=" ">
+<marc:subfield code="a">Ray Charles, piano & celeste.</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="505" ind1="0" ind2=" ">
+<marc:subfield code="a">The Ray -- My melancholy baby -- Black coffee -- There's no you -- Doodlin' -- Sweet sixteen bars -- I surrender dear -- Undecided.</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="500" ind1=" " ind2=" ">
+<marc:subfield code="a">Brief record.</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="650" ind1=" " ind2="0">
+<marc:subfield code="a">Jazz</marc:subfield>
+<marc:subfield code="y">1951-1960.</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="650" ind1=" " ind2="0">
+<marc:subfield code="a">Piano with jazz ensemble.</marc:subfield>
+</marc:datafield>
+<marc:datafield tag="700" ind1="1" ind2=" ">
+<marc:subfield code="a">Charles, Ray,</marc:subfield>
+<marc:subfield code="d">1930-</marc:subfield>
+<marc:subfield code="4">prf</marc:subfield>
+</marc:datafield>
+</marc:record>
+</marc:collection>
 ```
 
+### LOC MARC XML Slim Example
+From Library of Congress [https://www.loc.gov/standards/marcxml//Sandburg/sandburg.xml](https://www.loc.gov/standards/marcxml//Sandburg/sandburg.xml)
+```xml
+<collection xmlns="http://www.loc.gov/MARC21/slim">
+<record>
+<leader>01142cam 2200301 a 4500</leader>
+<controlfield tag="001"> 92005291 </controlfield>
+<controlfield tag="003">DLC</controlfield>
+<controlfield tag="005">19930521155141.9</controlfield>
+<controlfield tag="008">920219s1993 caua j 000 0 eng </controlfield>
+<datafield tag="010" ind1=" " ind2=" ">
+<subfield code="a"> 92005291 </subfield>
+</datafield>
+<datafield tag="020" ind1=" " ind2=" ">
+<subfield code="a">0152038655 :</subfield>
+<subfield code="c">$15.95</subfield>
+</datafield>
+<datafield tag="040" ind1=" " ind2=" ">
+<subfield code="a">DLC</subfield>
+<subfield code="c">DLC</subfield>
+<subfield code="d">DLC</subfield>
+</datafield>
+<datafield tag="042" ind1=" " ind2=" ">
+<subfield code="a">lcac</subfield>
+</datafield>
+<datafield tag="050" ind1="0" ind2="0">
+<subfield code="a">PS3537.A618</subfield>
+<subfield code="b">A88 1993</subfield>
+</datafield>
+<datafield tag="082" ind1="0" ind2="0">
+<subfield code="a">811/.52</subfield>
+<subfield code="2">20</subfield>
+</datafield>
+<datafield tag="100" ind1="1" ind2=" ">
+<subfield code="a">Sandburg, Carl,</subfield>
+<subfield code="d">1878-1967.</subfield>
+</datafield>
+<datafield tag="245" ind1="1" ind2="0">
+<subfield code="a">Arithmetic /</subfield>
+<subfield code="c">Carl Sandburg ; illustrated as an anamorphic adventure by Ted Rand.</subfield>
+</datafield>
+<datafield tag="250" ind1=" " ind2=" ">
+<subfield code="a">1st ed.</subfield>
+</datafield>
+<datafield tag="260" ind1=" " ind2=" ">
+<subfield code="a">San Diego :</subfield>
+<subfield code="b">Harcourt Brace Jovanovich,</subfield>
+<subfield code="c">c1993.</subfield>
+</datafield>
+<datafield tag="300" ind1=" " ind2=" ">
+<subfield code="a">1 v. (unpaged) :</subfield>
+<subfield code="b">ill. (some col.) ;</subfield>
+<subfield code="c">26 cm.</subfield>
+</datafield>
+<datafield tag="500" ind1=" " ind2=" ">
+<subfield code="a">One Mylar sheet included in pocket.</subfield>
+</datafield>
+<datafield tag="520" ind1=" " ind2=" ">
+<subfield code="a">A poem about numbers and their characteristics. Features anamorphic, or distorted, drawings which can be restored to normal by viewing from a particular angle or by viewing the image's reflection in the provided Mylar cone.</subfield>
+</datafield>
+<datafield tag="650" ind1=" " ind2="0">
+<subfield code="a">Arithmetic</subfield>
+<subfield code="x">Juvenile poetry.</subfield>
+</datafield>
+<datafield tag="650" ind1=" " ind2="0">
+<subfield code="a">Children's poetry, American.</subfield>
+</datafield>
+<datafield tag="650" ind1=" " ind2="1">
+<subfield code="a">Arithmetic</subfield>
+<subfield code="x">Poetry.</subfield>
+</datafield>
+<datafield tag="650" ind1=" " ind2="1">
+<subfield code="a">American poetry.</subfield>
+</datafield>
+<datafield tag="650" ind1=" " ind2="1">
+<subfield code="a">Visual perception.</subfield>
+</datafield>
+<datafield tag="700" ind1="1" ind2=" ">
+<subfield code="a">Rand, Ted,</subfield>
+<subfield code="e">ill.</subfield>
+</datafield>
+</record>
+</collection>
+```
+
+### OCLC MARC XML example
 Compare to OCLC well formed submission:
 ```xml
 <?xml version="1.0" encoding="UTF-8"?> <record xmlns="http://www.loc.gov/MARC21/slim">
