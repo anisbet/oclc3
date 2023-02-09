@@ -10,3 +10,4 @@ lib/__pycache__/
 *.sqlite
 *.xml
 *.db
+test/*.lst
