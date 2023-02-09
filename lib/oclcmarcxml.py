@@ -142,7 +142,7 @@ class MarcXML:
         for subfield in subfield_list:
             # ['TEFMT', ('c', 'TEFMT'), ('d', 'TEF'), ('d', 'BKX'), ('d', 'EHH'), ('d', 'NYP'), ('d', 'UtOrBLW')]
             tag_entries.append(f"  <subfield code=\"{subfield[0]}\">{subfield[1]}</subfield>")
-        tag_entries.append(f"</datafield>")
+        tag_entries.append(f"</datafield>\n")
         return '\n'.join(tag_entries)
 
     def _convert_(self, entries:list):
