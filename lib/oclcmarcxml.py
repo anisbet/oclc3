@@ -78,10 +78,10 @@ class MarcXML:
         else:
             return ''
 
-    def _get_fields_(self, entry:str, raw:bool=True) -> str:
+    def _get_control_field_data_(self, entry:str, raw:bool=True) -> str:
         """
         >>> m = MarcXML([])
-        >>> print(m._get_fields_(".000. |ajm a0c a"))
+        >>> print(m._get_control_field_data_(".000. |ajm a0c a"))
         |ajm a0c a
         """
         fields = entry.split('|a')
@@ -125,8 +125,9 @@ class MarcXML:
         """
         # Given: '.040.  1 |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         tag           = self._get_tag_(entry)        # '040'
-        
-        data_fields   = self._get_fields_(entry)     # '|aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
+        (ind1, ind2)  = self._get_indicators_(entry) # ('1',' ')
+        tag_entries   = [f"<datafield tag=\"{tag}\" ind1=\"{ind1}\" ind2=\"{ind2}\">"]
+        data_fields   = self._get_control_field_data_(entry)     # '|aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         subfields     = data_fields.split('|')
         subfield_list = []
         for subfield in subfields:
@@ -135,13 +136,8 @@ class MarcXML:
             field_value= subfield[1:]
             if field_name != '':
                 subfield_list.append((field_name, field_value))
-        if int(tag) > 8:
-            (ind1, ind2)  = self._get_indicators_(entry) # ('1',' ')
-            tag_entries = [f"<datafield tag=\"{tag}\" ind1=\"{ind1}\" ind2=\"{ind2}\">"]
-        else:
-            tag_entries = [f"<datafield tag=\"{tag}\">"]
         for subfield in subfield_list:
-            # ['TEFMT', ('c', 'TEFMT'), ('d', 'TEF'), ('d', 'BKX'), ('d', 'EHH'), ('d', 'NYP'), ('d', 'UtOrBLW')]
+            # [('a', 'TEFMT'), ('c', 'TEFMT'), ('d', 'TEF'), ('d', 'BKX'), ('d', 'EHH'), ('d', 'NYP'), ('d', 'UtOrBLW')]
             tag_entries.append(f"  <subfield code=\"{subfield[0]}\">{subfield[1]}</subfield>")
         tag_entries.append(f"</datafield>")
         return tag_entries
@@ -207,16 +203,17 @@ class MarcXML:
         for entry in entries:
             tag = self._get_tag_(entry)
             if tag == '000':
-                record.append(f"<leader>{self._get_fields_(entry, False)}</leader>")
+                record.append(f"<leader>{self._get_control_field_data_(entry, False)}</leader>")
             # Any tag below '008' is a control field and doesn't have indicators or subfields.
             elif int(tag) <= 8:
-                record.append(f"<controlfield tag=\"{tag}\">{self._get_fields_(entry, False)}</controlfield>")
+                record.append(f"<controlfield tag=\"{tag}\">{self._get_control_field_data_(entry, False)}</controlfield>")
             else:
                 record.append(self._get_subfields_(entry))
         if entries:
             record.append(f"</record>")
         return record
 
+    # Used to collapse lists within lists, for example when printing the xml as a string.
     def _recurse_(self, final_list:list, lst):
         for item in lst:
             if isinstance(item, list):
