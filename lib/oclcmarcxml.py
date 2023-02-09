@@ -107,7 +107,9 @@ class MarcXML:
         inds = entry.split('|a')
         ind1 = ' '
         ind2 = ' '
-        if inds:
+        # There are no indicators for fields < '008'.
+        tag = self._get_tag_(entry)
+        if inds and int(tag) >= 8:
             ind1 = inds[0][-2:][0]
             ind2 = inds[0][-2:][1]
         return (ind1,ind2)
@@ -123,7 +125,7 @@ class MarcXML:
         """
         # Given: '.040.  1 |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         tag           = self._get_tag_(entry)        # '040'
-        (ind1, ind2)  = self._get_indicators_(entry) # ('1',' ')
+        
         data_fields   = self._get_fields_(entry)     # '|aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         subfields     = data_fields.split('|')
         subfield_list = []
@@ -133,8 +135,11 @@ class MarcXML:
             field_value= subfield[1:]
             if field_name != '':
                 subfield_list.append((field_name, field_value))
-        
-        tag_entries = [f"<datafield tag=\"{tag}\" ind1=\"{ind1}\" ind2=\"{ind2}\">"]
+        if int(tag) > 8:
+            (ind1, ind2)  = self._get_indicators_(entry) # ('1',' ')
+            tag_entries = [f"<datafield tag=\"{tag}\" ind1=\"{ind1}\" ind2=\"{ind2}\">"]
+        else:
+            tag_entries = [f"<datafield tag=\"{tag}\">"]
         for subfield in subfield_list:
             # ['TEFMT', ('c', 'TEFMT'), ('d', 'TEF'), ('d', 'BKX'), ('d', 'EHH'), ('d', 'NYP'), ('d', 'UtOrBLW')]
             tag_entries.append(f"  <subfield code=\"{subfield[0]}\">{subfield[1]}</subfield>")
@@ -142,19 +147,60 @@ class MarcXML:
         return tag_entries
 
     def _convert_(self, entries:list):
-        # .000. |ajm a0c a
-        # .001. |aocn769144454
-        # .003. |aOCoLC
-        # .005. |a20140415031111.0
-        # .007. |asd fsngnnmmned
-        # .008. |a111222s2012    nyu||n|j|         | eng d
-        # .024. 1 |a886979578425
-        # .028. 00|a88697957842
-        # .035.   |a(Sirsi) a1001499
-        # .035.   |a(Sirsi) a1001499
-        # .035.   |a(OCoLC)769144454
-        # .035.   |a(CaAE) a1001499
-        # .040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW
+        """
+        >>> m = MarcXML([
+        ... "*** DOCUMENT BOUNDARY ***",
+        ... ".000. |ajm a0c a",
+        ... ".001. |aocn769144454",
+        ... ".003. |aOCoLC",
+        ... ".005. |a20140415031111.0",
+        ... ".007. |asd fsngnnmmned",
+        ... ".008. |a111222s2012    nyu||n|j|         | eng d",
+        ... ".024. 1 |a886979578425",
+        ... ".028. 00|a88697957842",
+        ... ".035.   |a(Sirsi) a1001499",
+        ... ".035.   |a(Sirsi) a1001499",
+        ... ".035.   |a(OCoLC)769144454",
+        ... ".035.   |a(CaAE) a1001499",
+        ... ".040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW"])
+        >>> print(m)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <record xmlns="http://www.loc.gov/MARC21/slim">
+        <leader>jm a0c a</leader>
+        <controlfield tag="001">ocn769144454</controlfield>
+        <controlfield tag="003">OCoLC</controlfield>
+        <controlfield tag="005">20140415031111.0</controlfield>
+        <controlfield tag="007">sd fsngnnmmned</controlfield>
+        <controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
+        <datafield tag="024" ind1="1" ind2=" ">
+          <subfield code="a">886979578425</subfield>
+        </datafield>
+        <datafield tag="028" ind1="0" ind2="0">
+          <subfield code="a">88697957842</subfield>
+        </datafield>
+        <datafield tag="035" ind1=" " ind2=" ">
+          <subfield code="a">(Sirsi) a1001499</subfield>
+        </datafield>
+        <datafield tag="035" ind1=" " ind2=" ">
+          <subfield code="a">(Sirsi) a1001499</subfield>
+        </datafield>
+        <datafield tag="035" ind1=" " ind2=" ">
+          <subfield code="a">(OCoLC)769144454</subfield>
+        </datafield>
+        <datafield tag="035" ind1=" " ind2=" ">
+          <subfield code="a">(CaAE) a1001499</subfield>
+        </datafield>
+        <datafield tag="040" ind1=" " ind2=" ">
+          <subfield code="a">TEFMT</subfield>
+          <subfield code="c">TEFMT</subfield>
+          <subfield code="d">TEF</subfield>
+          <subfield code="d">BKX</subfield>
+          <subfield code="d">EHH</subfield>
+          <subfield code="d">NYP</subfield>
+          <subfield code="d">UtOrBLW</subfield>
+        </datafield>
+        </record>
+        """
         record = []
         if entries:
             record.append(f"<record xmlns=\"http://www.loc.gov/MARC21/slim\">")
@@ -162,7 +208,8 @@ class MarcXML:
             tag = self._get_tag_(entry)
             if tag == '000':
                 record.append(f"<leader>{self._get_fields_(entry, False)}</leader>")
-            elif tag == '008':
+            # Any tag below '008' is a control field and doesn't have indicators or subfields.
+            elif int(tag) <= 8:
                 record.append(f"<controlfield tag=\"{tag}\">{self._get_fields_(entry, False)}</controlfield>")
             else:
                 record.append(self._get_subfields_(entry))
@@ -170,12 +217,12 @@ class MarcXML:
             record.append(f"</record>")
         return record
 
-    def _recurse_(self, fix:list, lst):
+    def _recurse_(self, final_list:list, lst):
         for item in lst:
             if isinstance(item, list):
-                self._recurse_(fix, item)
+                self._recurse_(final_list, item)
             else:
-                fix.append(item)
+                final_list.append(item)
     
     def __str__(self) -> str:
         a = []
