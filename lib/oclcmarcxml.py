@@ -27,37 +27,32 @@ import re
 #   https://www.loc.gov/standards/marcxml/xml/collection.xml
 # Schema:
 #   https://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd
-class MarcRecord:
-    def __init__(self, flat:list):
-        pass
-
-    def __str__(self):
-        pass
 
 class MarcXML:
     """
-    >>> m = MarcXML(["*** DOCUMENT BOUNDARY ***", ".000. |ajm a0c a", "*** DOCUMENT BOUNDARY ***"])
+    >>> m = MarcXML(["*** DOCUMENT BOUNDARY ***", ".000. |ajm a0c a", ".008. |a111222s2012    nyu||n|j|         | eng d", ".035.   |a(OCoLC)769144454", "*** DOCUMENT BOUNDARY ***"])
     >>> print(m)
     <?xml version="1.0" encoding="UTF-8"?><record xmlns="http://www.loc.gov/MARC21/slim"><leader>jm a0c a</leader></record>
     """
     def __init__(self, flat:list):
-        rs = re.compile(r'\*\*\* DOCUMENT BOUNDARY \*\*\*')
+        new_doc = re.compile(r'\*\*\* DOCUMENT BOUNDARY \*\*\*')
         self.xml = []
         # Add declaration.
-        self.xml.append('<?xml version="1.0" encoding="UTF-8"?>')
+        self.xml.append(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+        # record.append('<record xmlns="http://www.loc.gov/MARC21/slim">')
         record = []
-        while len(flat) > 0:
+        while flat:
             line = flat.pop()
-            if rs.match(line):
-                # print(f"found: record start")
-                if len(record) > 0:
-                    record.append('</record>')
-                    self.xml.append(record)
+            if new_doc.match(line):
+                if record:
+                    record.reverse()
+                    self.xml.append(self._convert_(record))
                 record = []
-                if len(flat) > 0:
-                    record.append('<record xmlns="http://www.loc.gov/MARC21/slim">')
             else:
-                record.append(self._convert_(line))
+                record.append(line)
+        if record:
+            record.reverse()
+            self.xml.append(self._convert_(record))
 
     # Gets a string version of the entry's tag, like '000' or '035'.
     # param: str of the flat entry from the flat marc data.
@@ -150,7 +145,7 @@ class MarcXML:
         tag_entries.append(f"</datafield>")
         return '\n'.join(tag_entries)
 
-    def _convert_(self, flat:str):
+    def _convert_(self, entries:list):
         # .000. |ajm a0c a
         # .001. |aocn769144454
         # .003. |aOCoLC
@@ -165,21 +160,24 @@ class MarcXML:
         # .035.   |a(CaAE) a1001499
         # .040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW
         record = []
-        tag = self._get_tag_(flat)
-        if tag == '000':
-            record.append(f"<leader>{self._get_fields_(flat, False)}</leader>")
-        elif tag == '008':
-            record.append(f"<controlfield tag=\"{tag}\">{self._get_fields_(flat, False)}</controlfield>")
-        elif tag == '':
-            pass # Not sure, perhaps a run-on sentence from flatskip.
-        else:
-            record.append(self._get_subfields_(flat))
+        if entries:
+            record.append(f"<record xmlns=\"http://www.loc.gov/MARC21/slim\">\n")
+        for entry in entries:
+            tag = self._get_tag_(entry)
+            if tag == '000':
+                record.append(f"<leader>{self._get_fields_(entry, False)}</leader>\n")
+            elif tag == '008':
+                record.append(f"<controlfield tag=\"{tag}\">{self._get_fields_(entry, False)}</controlfield>\n")
+            else:
+                record.append(self._get_subfields_(entry))
 
-        # <marc_field tag="250" label="Edition">ON ORDER</marc_field>
-        return '\n'.join(record)
+        if entries:
+            record.append(f"</record>")
+        return record
 
     def __str__(self) -> str:
         return str.join('', [item for sublist in self.xml for item in sublist])
+        # return f"{self.xml}"
 
 
 if __name__ == "__main__":
