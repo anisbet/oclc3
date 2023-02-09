@@ -30,23 +30,41 @@ import re
 
 class MarcXML:
     """
-    >>> m = MarcXML(["*** DOCUMENT BOUNDARY ***", ".000. |ajm a0c a", ".008. |a111222s2012    nyu||n|j|         | eng d", ".035.   |a(OCoLC)769144454", "*** DOCUMENT BOUNDARY ***"])
-    >>> print(m)
+    >>> marc_slim = MarcXML(["*** DOCUMENT BOUNDARY ***", ".000. |ajm a0c a", ".008. |a111222s2012    nyu||n|j|         | eng d", ".035.   |a(OCoLC)769144454", "*** DOCUMENT BOUNDARY ***"])
+    >>> print(marc_slim)
     <?xml version="1.0" encoding="UTF-8"?>
-    <record xmlns="http://www.loc.gov/MARC21/slim">
+    <record xmlns="http://www.loc.gov/MARC21/slim" >
     <leader>jm a0c a</leader>
     <controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
     <datafield tag="035" ind1=" " ind2=" ">
       <subfield code="a">(OCoLC)769144454</subfield>
     </datafield>
     </record>
+    >>> marc_std = MarcXML(["*** DOCUMENT BOUNDARY ***", ".000. |ajm a0c a", ".008. |a111222s2012    nyu||n|j|         | eng d", ".035.   |a(OCoLC)769144454", "*** DOCUMENT BOUNDARY ***"], 'standard')
+    >>> print(marc_std)
+    <?xml version="1.0" encoding="UTF-8"?>
+    <record xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd" >
+    <marc:leader>jm a0c a</marc:leader>
+    <marc:controlfield tag="008">111222s2012    nyu||n|j|         | eng d</marc:controlfield>
+    <marc:datafield tag="035" ind1=" " ind2=" ">
+      <marc:subfield code="a">(OCoLC)769144454</marc:subfield>
+    </marc:datafield>
+    </marc:record>
     """
-    def __init__(self, flat:list):
+    def __init__(self, flat:list, namespace:str='slim'):
         new_doc = re.compile(r'\*\*\* DOCUMENT BOUNDARY \*\*\*')
         self.xml = []
+        slim = ''
+        slim_ns = """xmlns="http://www.loc.gov/MARC21/slim" """
+        std = 'marc:'
+        std_ns = """xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd" """
+        self.prefix = slim
+        self.ns = slim_ns
+        if namespace == 'standard':
+            self.prefix = std
+            self.ns = std_ns
         # Add declaration.
         self.xml.append(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        # record.append('<record xmlns="http://www.loc.gov/MARC21/slim">')
         record = []
         while flat:
             line = flat.pop()
@@ -66,8 +84,8 @@ class MarcXML:
     # return: str of the tag or empty string if no tag was found.
     def _get_tag_(self, entry:str) -> str:
         """
-        >>> m = MarcXML([])
-        >>> print(m._get_tag_(".000. |ajm a0c a"))
+        >>> marc_slim = MarcXML([])
+        >>> print(marc_slim._get_tag_(".000. |ajm a0c a"))
         000
         """
         t = re.match(r'\.\d{3}\.', entry)
@@ -80,8 +98,8 @@ class MarcXML:
 
     def _get_control_field_data_(self, entry:str, raw:bool=True) -> str:
         """
-        >>> m = MarcXML([])
-        >>> print(m._get_control_field_data_(".000. |ajm a0c a"))
+        >>> marc_slim = MarcXML([])
+        >>> print(marc_slim._get_control_field_data_(".000. |ajm a0c a"))
         |ajm a0c a
         """
         fields = entry.split('|a')
@@ -91,16 +109,16 @@ class MarcXML:
     
     def _get_indicators_(self, entry:str) -> list:
         """
-        >>> m = MarcXML([])
-        >>> print(f"{m._get_indicators_('.082. 04|a782.42/083|223')}")
+        >>> marc_slim = MarcXML([])
+        >>> print(f"{marc_slim._get_indicators_('.082. 04|a782.42/083|223')}")
         ('0', '4')
-        >>> print(f"{m._get_indicators_('.082.   |a782.42/083|223')}")
+        >>> print(f"{marc_slim._get_indicators_('.082.   |a782.42/083|223')}")
         (' ', ' ')
-        >>> print(f"{m._get_indicators_('.082. 1 |a782.42/083|223')}")
+        >>> print(f"{marc_slim._get_indicators_('.082. 1 |a782.42/083|223')}")
         ('1', ' ')
-        >>> print(f"{m._get_indicators_('.082.  5|a782.42/083|223')}")
+        >>> print(f"{marc_slim._get_indicators_('.082.  5|a782.42/083|223')}")
         (' ', '5')
-        >>> print(f"{m._get_indicators_('.050.  4|aM1997.F6384|bF47 2012')}")
+        >>> print(f"{marc_slim._get_indicators_('.050.  4|aM1997.F6384|bF47 2012')}")
         (' ', '4')
         """
         # .245. 04|aThe Fresh Beat Band|h[sound recording] :|bmusic from the hit TV show.
@@ -117,16 +135,16 @@ class MarcXML:
 
     def _get_subfields_(self, entry:str) -> list:
         """
-        >>> m = MarcXML([])
-        >>> print(f"{m._get_subfields_('.040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW')}")
+        >>> marc_slim = MarcXML([])
+        >>> print(f"{marc_slim._get_subfields_('.040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW')}")
         ['<datafield tag="040" ind1=" " ind2=" ">', '  <subfield code="a">TEFMT</subfield>', '  <subfield code="c">TEFMT</subfield>', '  <subfield code="d">TEF</subfield>', '  <subfield code="d">BKX</subfield>', '  <subfield code="d">EHH</subfield>', '  <subfield code="d">NYP</subfield>', '  <subfield code="d">UtOrBLW</subfield>', '</datafield>']
-        >>> print(f"{m._get_subfields_('.050.  4|aM1997.F6384|bF47 2012')}")
+        >>> print(f"{marc_slim._get_subfields_('.050.  4|aM1997.F6384|bF47 2012')}")
         ['<datafield tag="050" ind1=" " ind2="4">', '  <subfield code="a">M1997.F6384</subfield>', '  <subfield code="b">F47 2012</subfield>', '</datafield>']
         """
         # Given: '.040.  1 |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         tag           = self._get_tag_(entry)        # '040'
         (ind1, ind2)  = self._get_indicators_(entry) # ('1',' ')
-        tag_entries   = [f"<datafield tag=\"{tag}\" ind1=\"{ind1}\" ind2=\"{ind2}\">"]
+        tag_entries   = [f"<{self.prefix}datafield tag=\"{tag}\" ind1=\"{ind1}\" ind2=\"{ind2}\">"]
         data_fields   = self._get_control_field_data_(entry)     # '|aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW'
         subfields     = data_fields.split('|')
         subfield_list = []
@@ -138,13 +156,13 @@ class MarcXML:
                 subfield_list.append((field_name, field_value))
         for subfield in subfield_list:
             # [('a', 'TEFMT'), ('c', 'TEFMT'), ('d', 'TEF'), ('d', 'BKX'), ('d', 'EHH'), ('d', 'NYP'), ('d', 'UtOrBLW')]
-            tag_entries.append(f"  <subfield code=\"{subfield[0]}\">{subfield[1]}</subfield>")
-        tag_entries.append(f"</datafield>")
+            tag_entries.append(f"  <{self.prefix}subfield code=\"{subfield[0]}\">{subfield[1]}</{self.prefix}subfield>")
+        tag_entries.append(f"</{self.prefix}datafield>")
         return tag_entries
 
     def _convert_(self, entries:list):
         """
-        >>> m = MarcXML([
+        >>> marc_slim = MarcXML([
         ... "*** DOCUMENT BOUNDARY ***",
         ... ".000. |ajm a0c a",
         ... ".001. |aocn769144454",
@@ -159,9 +177,9 @@ class MarcXML:
         ... ".035.   |a(OCoLC)769144454",
         ... ".035.   |a(CaAE) a1001499",
         ... ".040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW"])
-        >>> print(m)
+        >>> print(marc_slim)
         <?xml version="1.0" encoding="UTF-8"?>
-        <record xmlns="http://www.loc.gov/MARC21/slim">
+        <record xmlns="http://www.loc.gov/MARC21/slim" >
         <leader>jm a0c a</leader>
         <controlfield tag="001">ocn769144454</controlfield>
         <controlfield tag="003">OCoLC</controlfield>
@@ -199,18 +217,18 @@ class MarcXML:
         """
         record = []
         if entries:
-            record.append(f"<record xmlns=\"http://www.loc.gov/MARC21/slim\">")
+            record.append(f"<record {self.ns}>")
         for entry in entries:
             tag = self._get_tag_(entry)
             if tag == '000':
-                record.append(f"<leader>{self._get_control_field_data_(entry, False)}</leader>")
+                record.append(f"<{self.prefix}leader>{self._get_control_field_data_(entry, False)}</{self.prefix}leader>")
             # Any tag below '008' is a control field and doesn't have indicators or subfields.
             elif int(tag) <= 8:
-                record.append(f"<controlfield tag=\"{tag}\">{self._get_control_field_data_(entry, False)}</controlfield>")
+                record.append(f"<{self.prefix}controlfield tag=\"{tag}\">{self._get_control_field_data_(entry, False)}</{self.prefix}controlfield>")
             else:
                 record.append(self._get_subfields_(entry))
         if entries:
-            record.append(f"</record>")
+            record.append(f"</{self.prefix}record>")
         return record
 
     # Used to collapse lists within lists, for example when printing the xml as a string.
