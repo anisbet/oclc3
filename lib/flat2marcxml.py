@@ -232,16 +232,16 @@ class MarcXML:
         return record
 
     # Used to collapse lists within lists, for example when printing the xml as a string.
-    def _recurse_(self, final_list:list, lst):
+    def _flatten_(self, final_list:list, lst):
         for item in lst:
             if isinstance(item, list):
-                self._recurse_(final_list, item)
+                self._flatten_(final_list, item)
             else:
                 final_list.append(item)
     
     def __str__(self) -> str:
         a = []
-        self._recurse_(a, self.xml)
+        self._flatten_(a, self.xml)
         return '\n'.join(a)
 
 
