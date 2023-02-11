@@ -23,7 +23,11 @@ This is a comprehensive list of all the settings you will need to manage local h
 4) Select Collection Evaluation and click the 'My Library' button.
 5) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least 1.5 hours.
 6) Download the zipped XSL file from the 'My Files' menu on the left of the page.
-7) Use pandas or excel to open and analyse.
+7) Use pandas or excel to open and analyse. You will have trouble because there are half a million entries some columns have hundreds of characters. To get around this:
+   1) In a pinch open in OpenOffice sheets as a fixed width document.
+   2) Save as `full_cat.csv`.
+   3) Use `cat full_cat.csv | awk -F'""' '{print $4}' >oclcnumbers.txt`
+8) The list now contains all the OCLC numbers attributed to your library.
 
 
 ## Contributing
