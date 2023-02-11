@@ -18,6 +18,12 @@ python oclc.py
 This is a comprehensive list of all the settings you will need to manage local holdings. Please contact [OCLC Developer Network APIs](https://www.oclc.org/developer/develop/web-services.en.html) for more information.
 
 ## Usage
+1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
+3) Once there select the Analytics tab.
+4) Select Collection Evaluation and click the 'My Library' button.
+5) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least 1.5 hours.
+6) Download the zipped XSL file from the 'My Files' menu on the left of the page.
+7) Use pandas or excel to open and analyse.
 
 
 ## Contributing
