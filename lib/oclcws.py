@@ -177,7 +177,7 @@ class OclcService:
     # verification at OCLC. The remainder of the list and the JSON response is returned.
     # Param:  List of OCLC numbers (as integers) to verify.
     # Return: List of two elements L[0]=List of remaining OCLC numbers, L[1]=response JSON.
-    def get_holdings(self, oclcNumbers:list):
+    def get_holdings(self, oclcNumbers:list) ->list:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -187,8 +187,8 @@ class OclcService:
         #   'https://worldcat.org/ih/datalist?oclcNumbers=850939592,850939596&inst=128807&instSymbol=OCPSB' \
         #   -H 'accept: application/atom+json' \
         #   -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-        oclc_nums_str = self._list_to_param_str_(oclcNumbers)
-        url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={oclc_nums_str}"
+        param_str = self._list_to_param_str_(oclcNumbers)
+        url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
         response = requests.get(url, headers=headers)
         # print(f"response: '{response.json()}'")
         # {'entries': [
@@ -219,30 +219,240 @@ class OclcService:
         return [oclcNumbers, response.json()]
 
 
-    def delete_holdings(self, oclcNumbers:list, cascade:int = 1):
-        # curl -X 'DELETE' \
-        # 'https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB' \
-        # -H 'accept: application/atom+json' \
-        # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-        ## cascade
-        # Whether or not to execute the operation if a local holdings record, or local biblliographic record
-        # exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
-        # 1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
-        # Request URL
-        # https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB
+    # Used to create a bibliographic record unique to this library, that is, a title that 
+    # no other library is likely to have. For example, the history of the Edmonton Public Library.
+    # param: record in XML. 
+    # return: dict as below if successful and 
+    # {
+    # "content": {}
+    # }
+    # and if unsuccessful:
+    # {
+    # "code": {
+    #     "value": "400",
+    #     "type": "http"
+    # },
+    # "message": "Required parameter oclcNumber missing from request.",
+    # "detail": null
+    # }
+    def create_bib_record(self, records:str) -> dict:
+        url = f"https://worldcat.org/bib/data?inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        # curl -X 'POST' \
+        # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
+        # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
+        # -H 'Authorization: Bearer tk_tP3Q1weM8zxxxxxxxxxxxxxxxxxxxxxxMFU21ng1t' \
+        # -H 'Content-Type: application/vnd.oclc.marc21+xml' \
+        # -d '<?xml version="1.0" encoding="UTF-8"?> <record xmlns="http://www.loc.gov/MARC21/slim">
+        #     <leader>00000nam a2200000 a 4500</leader>
+        #     <controlfield tag="008">120827s2012    nyua          000 0 eng d</controlfield>
+        #     <datafield tag="010" ind1=" " ind2=" ">
+        #         <subfield code="a">   63011276 </subfield>
+        #     </datafield>
+        #     <datafield tag="040" ind1=" " ind2=" ">
+        #         <subfield code="a">OCWMS</subfield>
+        #         <subfield code="b">eng</subfield>
+        #         <subfield code="c">OCPSB</subfield>
+        #     </datafield>
+        #     <datafield tag="100" ind1="0" ind2=" ">
+        #         <subfield code="a">OCLC Developer Network</subfield>
+        #     </datafield>
+        #     <datafield tag="245" ind1="1" ind2="0">
+        #         <subfield code="a">Test Record</subfield>
+        #     </datafield>
+        #     <datafield tag="500" ind1=" " ind2=" ">
+        #         <subfield code="a">FOR OCLC DEVELOPER NETWORK DOCUMENTATION</subfield>
+        #     </datafield>
+        # </record>        
+        # '
         pass
 
-    def update_holdings(self, records:dict):
+    def update_bib_record(self, record_xml:str):
+        url = f"https://worldcat.org/bib/data?inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        # curl -X 'PUT' \
+        # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
+        # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
+        # -H 'Authorization: Bearer tk_tP3Q1weM8zPY7RJkpYSCV4Y91smMFU21ng1t' \
+        # -H 'Content-Type: application/vnd.oclc.marc21+xml' \
+        # -d '<?xml version="1.0" encoding="UTF-8"?> <record xmlns="http://www.loc.gov/MARC21/slim">
+        #     <leader>00000nam a2200000 a 4500</leader>
+        #     <controlfield tag="001">99999999999999999999999</controlfield>
+        #     <controlfield tag="008">120827s2012    nyua          000 0 eng d</controlfield>
+        #     <datafield tag="010" ind1=" " ind2=" ">
+        #         <subfield code="a">   63011276 </subfield>
+        #     </datafield>
+        #     <datafield tag="040" ind1=" " ind2=" ">
+        #         <subfield code="a">OCWMS</subfield>
+        #         <subfield code="c">OCWMS</subfield>
+        #     </datafield>
+        #     <datafield tag="100" ind1=" " ind2="0">
+        #         <subfield code="a">OCLC Developer Network</subfield>
+        #     </datafield>
+        #     <datafield tag="245" ind1="4" ind2="0">
+        #         <subfield code="a">Test Record</subfield>
+        #     </datafield>
+        #     <datafield tag="500" ind1=" " ind2=" ">
+        #         <subfield code="a">FOR OCLC DEVELOPER NETWORK DOCUMENTATION</subfield>
+        #     </datafield>
+        # </record>      
+        # '
         pass
 
-    def create_holdings(self, records:dict):
+    # Create / set institurional holdings. Used to let OCLC know a library has a title. 
+    # param: List of oclc numbers as strings. The max number of numbers will be batch posted
+    # and the remaining returned.
+    # The successful request is returned:
+    # {
+    # "entries": [
+    #     {
+    #     "title": "44321120",
+    #     "content": {
+    #         "requestedOclcNumber": "44321120",
+    #         "currentOclcNumber": "37264396",
+    #         "institution": "OCWMS",
+    #         "status": "HTTP 403 Forbidden",
+    #         "detail": "Unauthorized 040 $c symbol for pilot modification.",
+    #         "id": "http://worldcat.org/oclc/37264396"
+    #     },
+    #     "updated": "2015-04-02T14:52:00.852Z"
+    #     },
+    #     {
+    #     "title": "896872613",
+    #     "content": {
+    #         "requestedOclcNumber": "896872613",
+    #         "currentOclcNumber": "896872613",
+    #         "institution": "OCWMS",
+    #         "status": "HTTP 200 OK",
+    #         "id": "http://worldcat.org/oclc/896872613"
+    #     },
+    #     "updated": "2015-04-02T14:52:00.880Z"
+    #     },
+    #     {
+    #     "title": "99999999999",
+    #     "content": {
+    #         "requestedOclcNumber": "99999999999",
+    #         "currentOclcNumber": "99999999999",
+    #         "institution": "OCWMS",
+    #         "status": "HTTP 404 Not Found",
+    #         "detail": "Record not found for holdings operation",
+    #         "id": "http://worldcat.org/oclc/99999999999"
+    #     },
+    #     "updated": "2015-04-02T14:52:00.881Z"
+    #     }
+    # ],
+    # "extensions": [
+    #     {
+    #     "name": "os:totalResults",
+    #     "attributes": {
+    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+    #     },
+    #     "children": [
+    #         "3"
+    #     ]
+    #     },
+    #     ...
+    # ]
+    # }
+    def set_holdings(self, oclcNumbers:list) -> list:
+        param_str = self._list_to_param_str_(oclcNumbers)
+        url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}={self.inst_id}&instSymbol={self.inst_symbol}"
         # curl -X 'POST' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+json' \
         # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
         # -d ''
         # https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB
-        pass
+        return oclcNumbers
+
+    # Unset / delete institutional holdings. Used to let OCLC know we don't have a title anymore.
+    # param: oclcNumbers - list of oclc integers, as strings. The method will send the max allowable,
+    #  (50), or the max contents of the argument list, which ever is smaller.
+    # param: cascade - int 
+    #  Whether or not to execute the operation if a local holdings record, or local biblliographic record
+    #  exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
+    #  1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
+    # return: list of remaining oclc numbers. 
+    # The response from the web service is an empty dictionary.
+    def unset_holdings(self, oclcNumbers:list, cascade:int = 1):
+        param_str = self._list_to_param_str_(oclcNumbers)
+        url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}&cascade={cascade}&inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        # curl -X 'DELETE' \
+        # 'https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        # Request URL
+        # https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB
+        return oclcNumbers
+
+    # Checks the current oclc number for provided numbers.
+    # {
+    # "entries": [
+    #     {
+    #     "title": "12345678",
+    #     "content": {
+    #         "requestedOclcNumber": "12345678",
+    #         "currentOclcNumber": "12345678",
+    #         "institution": "OCPSB",
+    #         "status": "HTTP 200 OK",
+    #         "detail": "Record found.",
+    #         "id": "http://worldcat.org/oclc/12345678",
+    #         "found": true,
+    #         "merged": false
+    #     },
+    #     "updated": "2023-02-11T03:53:12.365Z"
+    #     },
+    #     {
+    #     "title": "87654321",
+    #     "content": {
+    #         "requestedOclcNumber": "87654321",
+    #         "currentOclcNumber": "87654321",
+    #         "institution": "OCPSB",
+    #         "status": "HTTP 404 Not Found",
+    #         "detail": "Record not found.",
+    #         "id": "http://worldcat.org/oclc/87654321",
+    #         "found": false,
+    #         "merged": false
+    #     },
+    #     "updated": "2023-02-11T03:53:12.365Z"
+    #     }
+    # ],
+    # "extensions": [
+    #     {
+    #     "name": "os:totalResults",
+    #     "attributes": {
+    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+    #     },
+    #     "children": [
+    #         "2"
+    #     ]
+    #     },
+    #     {
+    #     "name": "os:startIndex",
+    #     "attributes": {
+    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+    #     },
+    #     "children": [
+    #         "1"
+    #     ]
+    #     },
+    #     {
+    #     "name": "os:itemsPerPage",
+    #     "attributes": {
+    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+    #     },
+    #     "children": [
+    #         "2"
+    #     ]
+    #     }
+    # ]
+    # } 
+    def check_control_numbers(self, oclcNumbers:list) -> list:
+        param_str = self._list_to_param_str_(oclcNumbers)
+        url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
+        # curl -X 'GET' \
+        # 'https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers=12345678,87654321' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer tk_tP3Q1weM8zPY7RJkpYSCV4Y91smMFU21ng1t'
+        return oclcNumbers
 
 if __name__ == "__main__":
     import doctest
