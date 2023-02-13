@@ -164,6 +164,7 @@ class MarcXML:
         """
         >>> marc_slim = MarcXML([
         ... "*** DOCUMENT BOUNDARY ***",
+        ... "FORM=MUSIC",
         ... ".000. |ajm a0c a",
         ... ".001. |aocn769144454",
         ... ".003. |aOCoLC",
@@ -219,6 +220,9 @@ class MarcXML:
         if entries:
             record.append(f"<record {self.ns}>")
         for entry in entries:
+            # Sirsi Dynix flat files contain a 'FORM=blah-blah' which is not valid MARC.
+            if re.match(r'^FORM*', entry):
+                continue
             tag = self._get_tag_(entry)
             if tag == '000':
                 record.append(f"<{self.prefix}leader>{self._get_control_field_data_(entry, False)}</{self.prefix}leader>")
