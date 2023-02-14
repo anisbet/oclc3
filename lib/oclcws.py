@@ -177,16 +177,16 @@ class OclcService:
     # verification at OCLC. The remainder of the list and the JSON response is returned.
     # Param:  List of OCLC numbers (as integers) to verify.
     # Return: List of two elements L[0]=List of remaining OCLC numbers, L[1]=response JSON.
-    def get_holdings(self, oclcNumbers:list) -> list:
+    def check_control_numbers(self, oclcNumbers:list) -> list:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
             "Authorization": f"Bearer {access_token}"
         }
-        # curl -X 'POST' \
-        #   'https://worldcat.org/ih/datalist?oclcNumbers=850939592,850939596&inst=128807&instSymbol=OCPSB' \
-        #   -H 'accept: application/atom+json' \
-        #   -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        # curl -X 'GET' \
+        # 'https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers=123456,7890122,4455677' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         param_str = self._list_to_param_str_(oclcNumbers)
         url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
         response = requests.post(url=url, headers=headers)

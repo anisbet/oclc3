@@ -25,8 +25,8 @@ import getopt
 from lib.oclcws import OclcService
 # Make sure you set this to False in production.
 DEFAULT_SERVER='Test'
-# TEST_MODE= True
-TEST_MODE= False
+TEST_MODE= True
+# TEST_MODE= False
 APP      = 'oclc'
 YAML     = 'epl_oclc.yaml'
 VERSION  = '0.00.01_dev'
@@ -73,6 +73,60 @@ def usage():
     """
     sys.stderr.write(usage_text)
     sys.exit()
+
+# Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
+# and which need no change.
+# param:  oclcnum_file path to OCLC numbers they have on record. 
+# param:  librarynums_file path to list of numbers library has.
+# param:  reclaim bool turns OCLC list into remove all.
+def _diff_(oclcnums:list, librarynums:list, reclaim:bool=False):
+    """
+    >>> olist = [1,2,3]
+    >>> llist = [2,3,4]
+    >>> l = _diff_(olist, llist)
+    >>> print(l)
+    {1: '-', 2: '', 3: '', 4: '+'}
+    """
+    ret_dict = {}
+    for oclcnum in oclcnums:
+        if oclcnum in librarynums:
+            ret_dict[oclcnum] = ""
+        else:
+            ret_dict[oclcnum] = "-"
+    for libnum in librarynums:
+        if libnum in oclcnums:
+            ret_dict[libnum] = ""
+        else:
+            ret_dict[libnum] = "+"
+    return ret_dict
+
+def _set_unset_(nums:dict, create_unset_list:bool=True) -> list:
+    """
+    >>> n = {1: '-', 2: '', 3: '', 4: '+'}
+    >>> _set_unset_(n)
+    [1]
+    >>> _set_unset_(n, False)
+    [4]
+    >>> n = {1: '', 2: '', 3: '', 4: ''}
+    >>> _set_unset_(n)
+    []
+    >>> n = {1: '', 2: None, 3: '', 4: ''}
+    >>> _set_unset_(n)
+    []
+    >>> n = {1: '', 2: None, 3: '+', 4: ''}
+    >>> _set_unset_(n, False)
+    [3]
+    >>> n = {1: '', 2: None, 3: '', 4: ''}
+    >>> _set_unset_(n, False)
+    []
+    """
+    ret = []
+    for item in nums.items():
+        if item[1] == '-' and create_unset_list == True:
+            ret.append(item[0])
+        if item[1] == "+" and create_unset_list == False:
+            ret.append(item[0])
+    return ret
 
 def _read_yaml_(yaml_file:str):
     """
@@ -138,10 +192,15 @@ def main(argv):
     if verbose_mode and oclc_number_file != '':
         print(f"OCLC numbers: {oclc_numbers}")
     print(f"config is a {type(config)} :: {config}")
-    ws = OclcService(config)
-    results = ws.get_holdings(oclc_numbers)
-    print(f"result: {results[1]}")
-    print(f"and the list now contains: {results[0]}")
+    # Don't do anything if the input list is empty. 
+    # TODO: Fix this so it isn't the only functions that run.
+    if oclc_numbers:
+        ws = OclcService(config)
+        results = ws.check_control_numbers(oclc_numbers)
+        print(f"result: {results[1]}")
+        print(f"and the list now contains: {results[0]}")
+    else:
+        print(f"no oclc numbers read from file: '{oclc_number_file}'")
 
 if __name__ == "__main__":
     if TEST_MODE == True:

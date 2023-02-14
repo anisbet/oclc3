@@ -18,6 +18,11 @@ python oclc.py
 This is a comprehensive list of all the settings you will need to manage local holdings. Please contact [OCLC Developer Network APIs](https://www.oclc.org/developer/develop/web-services.en.html) for more information.
 
 ## Usage
+ TODO
+
+# Reclamations Instructions
+
+## OCLC Records
 1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
 3) Once there select the Analytics tab.
 4) Select Collection Evaluation and click the 'My Library' button.
@@ -29,6 +34,34 @@ This is a comprehensive list of all the settings you will need to manage local h
    3) Use `cat full_cat.csv | awk -F'""' '{print $4}' >oclcnumbers.txt`
 8) The list now contains all the OCLC numbers attributed to your library.
 
+See [this section](#library-records) for instructions on how to prepare for reclamation at a library.
+
+## Library Records
+```bash
+selitem \ 
+-t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" \ 
+-l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" \ 
+-oC 2>/dev/null | sort | uniq >catkeys.wo_types.wo_locations.lst 
+cat catkeys.wo_types.wo_locations.lst | catalogdump -kf035 -of | nowrap.pl | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >all_records.flat
+# We'll use the flat file later to make any XML required to add records if needed.
+awk -F"\|a" '{ if ($2 ~ /\(OCoLC\)/) { oclcnum = $2; gsub(/\(OCoLC\)/, "", oclcnum); print oclcnum; }}' all_records.flat >librarynumbers.txt
+```
+
+Once done use {TODO: add script} which has two modes.
+1) Reclamation mode where all records registered with OCLC are removed.
+2) Maintenance mode where a 'set' and an 'unset' list are created.
+
+
+## Complete Mixed selection shell commands
+That is titles that have been modified (-r) or created (-p) since 90-days ago.
+```bash
+selitem -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" -oC 2>/dev/null | sort | uniq >catkeys.no_t.no_l.lst 
+cat catkeys.no_t.no_l.lst | selcatalog -iC -p">`transdate -d-90`" -oC  >mixed.catkeys.90d.lst
+cat catkeys.no_t.no_l.lst | selcatalog -iC -r">`transdate -d-90`" -oC  >>mixed.catkeys.90d.lst 
+cat mixed.catkeys.90d.lst | sort | uniq >mixed.catkeys.90d.uniq.lst
+cat mixed.catkeys.90d.uniq.lst | catalogdump -kf035 -of | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >flat.wo.onorder.lst
+cat flat.wo.onorder.lst | flatskip -if -aMARC -om >mixed.mrc
+```
 
 ## Contributing
 
@@ -41,16 +74,7 @@ Please make sure to update tests as appropriate.
 
 [Apache2](https://choosealicense.com/licenses/apache-2.0/)
 
-# Complete Mixed selection shell commands
-That is titles that have been modified (-r) or created (-p) since 90-days ago.
-```bash
-selitem -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" -oC 2>/dev/null | sort | uniq >catkeys.no_t.no_l.lst 
-cat catkeys.no_t.no_l.lst | selcatalog -iC -p">`transdate -d-90`" -oC  >mixed.catkeys.90d.lst
-cat catkeys.no_t.no_l.lst | selcatalog -iC -r">`transdate -d-90`" -oC  >>mixed.catkeys.90d.lst 
-cat mixed.catkeys.90d.lst | sort | uniq >mixed.catkeys.90d.uniq.lst
-cat mixed.catkeys.90d.uniq.lst | catalogdump -kf035 -of | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >flat.wo.onorder.lst
-cat flat.wo.onorder.lst | flatskip -if -aMARC -om >mixed.mrc
-```
+
 
 # XML Reference
 Ref
