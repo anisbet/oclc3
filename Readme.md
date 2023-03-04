@@ -1,6 +1,6 @@
 # OCLC Holdings Management
 
-oclc is a Python application to update OCLC local library holdings.
+`oclc` is a Python application to manage library holdings in OCLC's [WorldCat discovery](https://www.worldcat.org/) database through [WorldCat Metadata web services](https://www.oclc.org/developer/develop/web-services.en.html). [See here for more information](#regular-worldcat-maintenance).
 
 ## Installation
 
@@ -17,24 +17,41 @@ python oclc.py
 ## Required OCLC Settings
 This is a comprehensive list of all the settings you will need to manage local holdings. Please contact [OCLC Developer Network APIs](https://www.oclc.org/developer/develop/web-services.en.html) for more information.
 
-## Usage
- TODO
+## Regular WorldCat Maintenance
+OCLC is a consortium that offers online catalog discovery tools for academic, public, and special libraries. Each library that pays for the service will appear as a holding library for title searches world-wide. 
+
+To support this OCLC maintains a huge catalog of titles contributed by members. But to reduce redundancy of every library submitting a record for 'Treasure Island', they have just one well-formed record, and each library indicates they have the title by marking the record as a *holding* under their institution ID. This is known as **setting** the holding. Once set the library will appear as one of the lending locations for the title in world-wide searches.
+
+If the library weeds the title from their collection they update OCLC by **unsetting** the title. Once done the library no longer appears as a holding library.
+
+Any unique title the library possesses can be uploaded as a *local holding* by submitting their catalog record(s) as MARC21 XML.
+
+The **oclc3.py** script allows for the maintenance of holdings at OCLC by supporting each of these functions.
+1) Setting holdings - which, when using the old batch process, where known as *updates* and *creates*.
+2) Unsetting holdings - Also known as *deletes* in batch processing.
+3) Local Holdings Submission - Previously this was simply covered by the *creates* and *updates* in the batch process.
 
 # Reclamations Instructions
+As mentioned before, records were maintained at OCLC through a batch process which consisted of collecting all new and updated records of interest and submitting slim MARC records to OCLC. Deletes were handled by searching the ILS logs for remove title commands which is the only surviving evidence of a purged title in the ILS. Typically the search starts from the last time the batch ran, remove title commands may be missed if they occurred outside of the search time-frame window. 
+
+The result is sometimes titles didn't get unset, and customers would get upset that the library indicates they have the title but they don't. 
+
+To fix the mismatch of library's holdings OCLC offers a **reclamation** service. At the library's request and a cost of a few thousands of dollars, OCLC will purge all the holdings for a library and the library submits a complete new set.
+
+To remediate this expense and improve customer service ```oclc3``` can run a reclamation process.
 
 ## OCLC Records
 1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
-3) Once there select the Analytics tab.
-4) Select Collection Evaluation and click the 'My Library' button.
-5) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least 1.5 hours.
-6) Download the zipped XSL file from the 'My Files' menu on the left of the page.
-7) Use pandas or excel to open and analyse. You will have trouble because there are half a million entries some columns have hundreds of characters. To get around this:
-   1) In a pinch open in OpenOffice sheets as a fixed width document.
-   2) Save as `full_cat.csv`.
-   3) Use `cat full_cat.csv | awk -F'""' '{print $4}' >oclcnumbers.txt`
-8) The list now contains all the OCLC numbers attributed to your library.
-
-See [this section](#library-records) for instructions on how to prepare for reclamation at a library.
+2) Once logged in select the ```Analytics``` tab.
+3) Select Collection Evaluation and click the ```My Library``` button.
+4) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least 1.5 hours.
+5) Download the zipped XSL file from the ```My Files``` menu on the left of the page.
+6) Use ```pandas``` or ```excel``` to open and analyse. Expect trouble because there are half a million entries, some with columns of hundreds of characters.
+**Hint**:
+   1) Open the ```CSV``` in ```OpenOffice``` sheets as a fixed width document.
+   2) Save as ```full_cat.csv```.
+   3) Use ```cat full_cat.csv | awk -F'""' '{print $4}' >oclcnumbers.txt``` to capture all the OCLC numbers.
+1) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
 
 ## Library Records
 ```bash
@@ -47,10 +64,7 @@ cat catkeys.wo_types.wo_locations.lst | catalogdump -kf035 -of | nowrap.pl | gre
 awk -F"\|a" '{ if ($2 ~ /\(OCoLC\)/) { oclcnum = $2; gsub(/\(OCoLC\)/, "", oclcnum); print oclcnum; }}' all_records.flat >librarynumbers.txt
 ```
 
-Once done use {TODO: add script} which has two modes.
-1) Reclamation mode where all records registered with OCLC are removed.
-2) Maintenance mode where a 'set' and an 'unset' list are created.
-
+Once done use ```oclc3.py``` script's **TODO: which switch??** can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, and a ` ` indicates nothing needs to be done.
 
 ## Complete Mixed selection shell commands
 That is titles that have been modified (-r) or created (-p) since 90-days ago.

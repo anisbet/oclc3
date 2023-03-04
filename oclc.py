@@ -21,112 +21,16 @@
 import os
 import sys
 import yaml
-import getopt
+import argparse
 from lib.oclcws import OclcService
-# Make sure you set this to False in production.
-DEFAULT_SERVER='Test'
-TEST_MODE= True
-# TEST_MODE= False
+# Debug mode
+# DEBUG_MODE= True
+DEBUG_MODE= False
 APP      = 'oclc'
-YAML     = 'epl_oclc.yaml'
-VERSION  = '0.00.01_dev'
+YAML     = 'oclc.yaml'
+
 # TODO: Define workflow for comparing OCLC numbers at a library against OCLC holdings.
 # TODO: Manage authentication. See oclcws.py for more information.
-def usage():
-    usage_text = f"""
-    Usage: python {APP}.py [options]
-
-    Performs local holdings updates at OCLC.
-
-    This application uses YAML configurations found in {YAML}
-
-    Required yaml values:
-    Test: 
-        name:          "TEST_NAME"
-        clientId:      "Test client id from OCLC"
-        secret:        "Test secret"
-        registryId:    "128807"
-        principalId:   "hex string from OCLC Web Service Key management page"
-        principalIdns: "urn:oclc:wms:da"
-        institutionalSymbol: "OCPSB"
-    Production: 
-        name:          "PROD_NAME"
-        clientId:      "Test client id from OCLC"
-        secret:        "Test secret"
-        registryId:    "Production registry ID (integer)"
-        principalId:   "hex string"
-        principalIdns: "urn:oclc:platform:[registryId]"
-        institutionalSymbol: "ABC"
-    OCLC:
-        institutionalSymbol: "ABC"
-        host:          "oauth.oclc.org"
-
-    -h: Prints this help message.
-    -n --num_file[/foo/bar.txt]: File containing OCLC numbers to check.
-    -v: Turns on verbose messaging which reports errors and
-      other diagnostic information.
-    -s --server="Test|Production": Gets the configuration for either the Test or
-      Production server from the yaml file.
-    -y --yaml="/foo/bar.yaml": Specify a different yaml configuration file.
-
-    Version: {VERSION} Copyright (c) 2023.
-    """
-    sys.stderr.write(usage_text)
-    sys.exit()
-
-# Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
-# and which need no change.
-# param:  oclcnum_file path to OCLC numbers they have on record. 
-# param:  librarynums_file path to list of numbers library has.
-# param:  reclaim bool turns OCLC list into remove all.
-def _diff_(oclcnums:list, librarynums:list, reclaim:bool=False):
-    """
-    >>> olist = [1,2,3]
-    >>> llist = [2,3,4]
-    >>> l = _diff_(olist, llist)
-    >>> print(l)
-    {1: '-', 2: '', 3: '', 4: '+'}
-    """
-    ret_dict = {}
-    for oclcnum in oclcnums:
-        if oclcnum in librarynums:
-            ret_dict[oclcnum] = ""
-        else:
-            ret_dict[oclcnum] = "-"
-    for libnum in librarynums:
-        if libnum in oclcnums:
-            ret_dict[libnum] = ""
-        else:
-            ret_dict[libnum] = "+"
-    return ret_dict
-
-def _set_unset_(nums:dict, create_unset_list:bool=True) -> list:
-    """
-    >>> n = {1: '-', 2: '', 3: '', 4: '+'}
-    >>> _set_unset_(n)
-    [1]
-    >>> _set_unset_(n, False)
-    [4]
-    >>> n = {1: '', 2: '', 3: '', 4: ''}
-    >>> _set_unset_(n)
-    []
-    >>> n = {1: '', 2: None, 3: '', 4: ''}
-    >>> _set_unset_(n)
-    []
-    >>> n = {1: '', 2: None, 3: '+', 4: ''}
-    >>> _set_unset_(n, False)
-    [3]
-    >>> n = {1: '', 2: None, 3: '', 4: ''}
-    >>> _set_unset_(n, False)
-    []
-    """
-    ret = []
-    for item in nums.items():
-        if item[1] == '-' and create_unset_list == True:
-            ret.append(item[0])
-        if item[1] == "+" and create_unset_list == False:
-            ret.append(item[0])
-    return ret
 
 def _read_yaml_(yaml_file:str):
     """
@@ -143,67 +47,90 @@ def _read_yaml_(yaml_file:str):
         except yaml.YAMLError as exc:
             print(exc)
 
-def main(argv):
-    verbose_mode     = False
-    yaml             = YAML
-    oclc_number_file = ''
-    oclc_numbers     = []
-    server           = DEFAULT_SERVER
-    try:
-        opts, args = getopt.getopt(argv, "hn:s:vy:", ["num_file=", "server=", "yaml="])
-    except getopt.GetoptError:
-        usage()
-    for opt, arg in opts:
-        if opt in "-h":
-            usage()
-        elif opt in ("-n", "--num_file"):
-            assert isinstance(arg, str)
-            if os.path.isfile(arg) == False:
-                sys.stderr.write(f"*error, no such OCLC number list file: '{arg}'.\n")
-                sys.exit()
-            oclc_number_file = arg
-            if verbose_mode:
-                print(f"oclc number file list: {oclc_number_file}")
-        elif opt in ("-s", "--server"):
-            assert isinstance(arg, str)
-            if arg == 'Test' or arg == 'Production':
-                server = arg
-            else:
-                print(f"*error, '{arg}' is not a valid server. See -h for more information.")
-                usage()
-            if verbose_mode:
-                print(f"server: {server}")
-        elif opt in "-v":
-            verbose_mode = True
-            print(f"verbose mode {verbose_mode}")
-        elif opt in ("-y", "--yaml"):
-            assert isinstance(arg, str)
-            yaml = arg
-    ##### End of cmd args.        
-    config = _read_yaml_(yaml)[server]
-    if verbose_mode:
-        print(f"config: '{config['name']}'")
-    # Read in a list of OCLC numbers if provided.
-    if oclc_number_file != '':
-        with open(oclc_number_file, encoding='utf8') as f:
-            for line in f:
-                oclc_numbers.append(line.strip())
-        f.close()
-    if verbose_mode and oclc_number_file != '':
-        print(f"OCLC numbers: {oclc_numbers}")
-    print(f"config is a {type(config)} :: {config}")
-    # Don't do anything if the input list is empty. 
-    # TODO: Fix this so it isn't the only functions that run.
-    if oclc_numbers:
+def _update_holdings_(mode:str, num_file:str, config:dict):
+    oclc_numbers = []
+    # Read in a list of OCLC numbers to set.
+    with open(num_file, encoding='utf8') as f:
+        for line in f:
+            oclc_numbers.append(line.strip())
+    f.close()
+    if DEBUG_MODE:
+        print(f"numbers to set: {oclc_numbers}")
+        print(f"    using mode: {mode}")
+    if mode == 'set':
         ws = OclcService(config)
-        results = ws.check_control_numbers(oclc_numbers)
-        print(f"result: {results[1]}")
-        print(f"and the list now contains: {results[0]}")
+        # while oclc_numbers:
+        #     results = ws.check_control_numbers(set_numbers)
+        #     print(f"result: {results[1]}")
+        #     print(f"and the list now contains: {results[0]}")
+        pass
+    elif mode == 'unset':
+        pass
+    elif mode == 'upload':
+        pass
     else:
-        print(f"no oclc numbers read from file: '{oclc_number_file}'")
+        return False
+
+def main(argv):
+    server = 'Test'
+    parser = argparse.ArgumentParser(
+        prog = 'oclc',
+        usage='%(prog)s [options]' ,
+        description='Maintains holdings in OCLC WorldCat Search.',
+        epilog='See "-h" for help more information.'
+    )
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+    parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
+    parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
+    parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
+    parser.add_argument('-t', '--test', action='store_true', help='use test mode and test server settings in YAML.')
+    parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
+    parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/bar.yaml]', default='oclc.yaml', help='alternate YAML file for configuration. Default epl.yaml')
+    args = parser.parse_args()
+    
+    # Test all the args
+    if args.unset and os.path.isfile(args.unset) == False:
+        sys.stderr.write(f"*error, no such file: '{args.unset}'.\n")
+        sys.exit()
+    if args.set and os.path.isfile(args.set) == False:
+        sys.stderr.write(f"*error, no such file: '{args.set}'.\n")
+        sys.exit()
+    if args.xml_records and os.path.isfile(args.xml_records) == False:
+        sys.stderr.write(f"*error, no such file: '{args.xml_records}'.\n")
+        sys.exit()
+    if args.yaml:
+        if os.path.isfile(args.yaml) == False:
+            sys.stderr.write(f"*error, no such file: '{args.yaml}'.\n")
+            sys.exit()
+    if args.test == False:
+        server = 'Production'
+    DEBUG_MODE = args.debug
+    ##### End of arg parsing.
+    set_numbers = []
+    unset_numbers = []
+    config = _read_yaml_(args.yaml)[server]
+    if DEBUG_MODE:
+        print(f"debug: '{DEBUG_MODE}'")
+        print(f"test: '{args.test}'")
+        print(f"config: '{config['name']}'")
+        print(f"set: '{args.set}'")
+        print(f"unset: '{args.unset}'")
+        print(f"xml records: '{args.xml_records}'")
+    # Read in a list of OCLC numbers to set.
+    if args.set:
+        if _update_holdings_('set', args.set, config) == False:
+            sys.stderr.write(f"*error, while adding holdings in WorldCat!\nSee log for more details.")
+            sys.exit()
+    if args.unset:
+        if _update_holdings_('unset', args.unset, config) == False:
+            sys.stderr.write(f"*error, while deleting holdings in WorldCat!\nSee log for more details.")
+            sys.exit()
+    # print(f"config is a {type(config)} :: {config}")
+    # Don't do anything if the input list is empty. 
+    
 
 if __name__ == "__main__":
-    if TEST_MODE == True:
+    if DEBUG_MODE == True:
         import doctest
         doctest.testmod()
     else:
