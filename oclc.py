@@ -22,19 +22,15 @@ import os
 import sys
 import yaml
 import argparse
+import re
 from lib.oclcws import OclcService
-# Debug mode
-# DEBUG_MODE= True
-DEBUG_MODE= False
-APP      = 'oclc'
-YAML     = 'oclc.yaml'
 
 # TODO: Define workflow for comparing OCLC numbers at a library against OCLC holdings.
 # TODO: Manage authentication. See oclcws.py for more information.
 
 def _read_yaml_(yaml_file:str):
     """
-    >>> c = _read_yaml_('epl_oclc.yaml')
+    >>> c = _read_yaml_('oclc.yaml')
     >>> print(c['OCLC']['institutionalSymbol'])
     CNEDM
     """
@@ -47,32 +43,66 @@ def _read_yaml_(yaml_file:str):
         except yaml.YAMLError as exc:
             print(exc)
 
-def _update_holdings_(mode:str, num_file:str, config:dict):
-    oclc_numbers = []
+def _find_set_(line):
+    regex = re.compile(r'^[+]?\d{4,9}\b(?!\.)')
+    match = regex.match(line)
+    if match:
+        if match.group(0).startswith('+'):
+            return match.group(0)[1:]
+        return match.group(0)
+
+def _find_unset_(line):
+    regex = re.compile(r'^[-]?\d{4,9}\b(?!\.)')
+    match = regex.match(line)
+    if match:
+        if match.group(0).startswith('-'):
+            return match.group(0)[1:]
+        return match.group(0)
+
+def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
+    """
+    >>> n = _read_num_file_('test.set', 'set', False)
+    >>> n
+    ['12345', '6789']
+    >>> n = _read_num_file_('test.set', 'unset', False)
+    >>> n
+    ['12345', '101112']
+    """
+    nums = []
     # Read in a list of OCLC numbers to set.
     with open(num_file, encoding='utf8') as f:
         for line in f:
-            oclc_numbers.append(line.strip())
+            if set_unset == 'set':
+                num = _find_set_(line)
+                if num:
+                    nums.append(num)
+            elif set_unset == 'unset':
+                num = _find_unset_(line)
+                if num:
+                    nums.append(num)
+            else: # neither 'set' nor 'unset'
+                sys.stderr.write(f"*error, invalid or missing 'set_unset' value: '{set_unset}'!")
+                break
     f.close()
-    if DEBUG_MODE:
-        print(f"numbers to set: {oclc_numbers}")
-        print(f"    using mode: {mode}")
-    if mode == 'set':
-        ws = OclcService(config)
-        # while oclc_numbers:
-        #     results = ws.check_control_numbers(set_numbers)
-        #     print(f"result: {results[1]}")
-        #     print(f"and the list now contains: {results[0]}")
-        pass
-    elif mode == 'unset':
-        pass
-    elif mode == 'upload':
-        pass
-    else:
-        return False
+    if debug:
+        print(f"numbers read from {num_file}:")
+        print(f"numbers start -> {nums}")
+    return nums
+
+# Adds or sets the institutional holdings.
+# param: oclc_nums_file path string to the list of OCLC numbers to add as institutional holdings.
+# param: config dictionary read from the YAML file, containing connection and authentication for 
+#   a given server.
+# return: TODO: TBD
+def _set_holdings_(oclc_nums_path:str, config:dict, debug:bool=False):
+    oclc_numbers = _read_num_file_(oclc_nums_path, 'set', debug)
+    if args.debug:
+        print(f"numbers read from {oclc_nums_path}:")
+        print(f"numbers start -> {oclc_numbers}")
+    
 
 def main(argv):
-    server = 'Test'
+
     parser = argparse.ArgumentParser(
         prog = 'oclc',
         usage='%(prog)s [options]' ,
@@ -88,51 +118,53 @@ def main(argv):
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/bar.yaml]', default='oclc.yaml', help='alternate YAML file for configuration. Default epl.yaml')
     args = parser.parse_args()
     
-    # Test all the args
-    if args.unset and os.path.isfile(args.unset) == False:
-        sys.stderr.write(f"*error, no such file: '{args.unset}'.\n")
-        sys.exit()
-    if args.set and os.path.isfile(args.set) == False:
-        sys.stderr.write(f"*error, no such file: '{args.set}'.\n")
-        sys.exit()
-    if args.xml_records and os.path.isfile(args.xml_records) == False:
-        sys.stderr.write(f"*error, no such file: '{args.xml_records}'.\n")
-        sys.exit()
-    if args.yaml:
-        if os.path.isfile(args.yaml) == False:
-            sys.stderr.write(f"*error, no such file: '{args.yaml}'.\n")
-            sys.exit()
+
+    # End of arg parsing, set and check variables.
     if args.test == False:
         server = 'Production'
-    DEBUG_MODE = args.debug
-    ##### End of arg parsing.
-    set_numbers = []
-    unset_numbers = []
+    else:
+        server = 'Test'
+    # Load configuration.
+    if args.yaml and os.path.isfile(args.yaml) == False:
+        sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
+        sys.exit()
     config = _read_yaml_(args.yaml)[server]
-    if DEBUG_MODE:
-        print(f"debug: '{DEBUG_MODE}'")
+    if args.debug:
+        print(f"debug: '{args.debug}'")
         print(f"test: '{args.test}'")
         print(f"config: '{config['name']}'")
         print(f"set: '{args.set}'")
         print(f"unset: '{args.unset}'")
         print(f"xml records: '{args.xml_records}'")
-    # Read in a list of OCLC numbers to set.
-    if args.set:
-        if _update_holdings_('set', args.set, config) == False:
-            sys.stderr.write(f"*error, while adding holdings in WorldCat!\nSee log for more details.")
-            sys.exit()
-    if args.unset:
-        if _update_holdings_('unset', args.unset, config) == False:
-            sys.stderr.write(f"*error, while deleting holdings in WorldCat!\nSee log for more details.")
-            sys.exit()
-    # print(f"config is a {type(config)} :: {config}")
-    # Don't do anything if the input list is empty. 
+
+
+    # Add records to institution's holdings.
+    if args.set and os.path.isfile(args.set):
+        _set_holdings_(args.set, config)
+    else:
+        sys.stderr.write(f"*error, 'set' requires file of oclc numbers but file '{args.set}' was not found.\n")
+        sys.exit()
+
+
+    # delete records from institutional holdings.
+    if args.unset and os.path.isfile(args.unset):
+        pass
+    else:
+        sys.stderr.write(f"*error, no such file: '{args.unset}'.\n")
+        sys.exit()
+
+
+    # Upload XML MARC21 records.
+    if args.xml_records and os.path.isfile(args.xml_records):
+        pass
+    else:
+        sys.stderr.write(f"*error, no XML record file called '{args.xml_records}' was found!\n")
+        sys.exit()
     
 
 if __name__ == "__main__":
-    if DEBUG_MODE == True:
-        import doctest
-        doctest.testmod()
-    else:
-        main(sys.argv[1:])
+    import doctest
+    doctest.testmod()
+else:
+    main(sys.argv[1:])
 # EOF
