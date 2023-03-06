@@ -33,7 +33,7 @@ class OclcService:
     # registryId:str='128807'
     # institutionalSymbol:str='CNEDM'
     # debug:bool=False
-    def __init__(self, configs:dict = {}):
+    def __init__(self, configs:dict = {}, debug:bool=False):
         self.client_id = ''
         self.secret = ''
         self.inst_id = ''
@@ -44,7 +44,7 @@ class OclcService:
             self.secret      = configs.get('secret')
             self.inst_id     = configs.get('registryId')
             self.inst_symbol = configs.get('institutionalSymbol')
-            self.debug       = configs.get('debug')
+            self.debug       = debug
         except KeyError:
             pass # They will get set somewhere else or we are testing.
         if len(self.client_id) > 0 and len(self.secret) > 0:

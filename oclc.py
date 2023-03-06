@@ -58,7 +58,7 @@ def _find_set_(line):
     >>> _find_set_('12345 is the number you are looking for')
     '12345'
     """
-    regex = re.compile(r'^[+]?\d{4,9}\b(?!\.)')
+    regex = re.compile(r'^[+]?\d{4,14}\b(?!\.)')
     match = regex.match(line)
     if match:
         if match.group(0).startswith('+'):
@@ -80,7 +80,7 @@ def _find_unset_(line):
     >>> _find_unset_('12345 is the number you are looking for')
     '12345'
     """
-    regex = re.compile(r'^[-]?\d{4,9}\b(?!\.)')
+    regex = re.compile(r'^[-]?\d{4,14}\b(?!\.)')
     match = regex.match(line)
     if match:
         if match.group(0).startswith('-'):
@@ -139,11 +139,14 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
 # return: TODO: TBD
 def _set_holdings_(oclc_nums_path:str, config:dict, debug:bool=False):
     oclc_numbers = _read_num_file_(oclc_nums_path, 'set', debug)
-    if args.debug:
-        print(f"numbers read from {oclc_nums_path}:")
-        print(f"numbers start -> {oclc_numbers}")
-    
+    if debug:
+        print(f"Read {len(oclc_numbers)} OCLC numbers from file '{oclc_nums_path}'.")
+        print(f"The first 3 numbers to set are: {oclc_numbers[:3]}")
+    # Create a web service object. 
+    ws = OclcService(configs=config)
 
+
+# Main entry to the application if not testing.
 def main(argv):
 
     parser = argparse.ArgumentParser(
