@@ -43,7 +43,21 @@ def _read_yaml_(yaml_file:str):
         except yaml.YAMLError as exc:
             print(exc)
 
+# Find set values in a string. 
+# param: line str to search. 
+# return: The matching OCLC number or nothing if none found.
 def _find_set_(line):
+    """ 
+    >>> _find_set_('12345.012 is the number you are looking for')
+    >>> _find_set_('12345')
+    '12345'
+    >>> _find_set_('-12345')
+    >>> _find_set_('+12345')
+    '12345'
+    >>> _find_set_(' 12345')
+    >>> _find_set_('12345 is the number you are looking for')
+    '12345'
+    """
     regex = re.compile(r'^[+]?\d{4,9}\b(?!\.)')
     match = regex.match(line)
     if match:
@@ -51,7 +65,21 @@ def _find_set_(line):
             return match.group(0)[1:]
         return match.group(0)
 
+# Find unset values in a string. 
+# param: line str to search. 
+# return: The matching OCLC number or nothing if no match.
 def _find_unset_(line):
+    """ 
+    >>> _find_unset_('12345.012 is the number you are looking for')
+    >>> _find_unset_('12345')
+    '12345'
+    >>> _find_unset_('+12345')
+    >>> _find_unset_('-12345')
+    '12345'
+    >>> _find_unset_(' 12345')
+    >>> _find_unset_('12345 is the number you are looking for')
+    '12345'
+    """
     regex = re.compile(r'^[-]?\d{4,9}\b(?!\.)')
     match = regex.match(line)
     if match:
@@ -59,13 +87,28 @@ def _find_unset_(line):
             return match.group(0)[1:]
         return match.group(0)
 
+# Read OCLC numbers from a given file. OCLC numbers must appear 
+# one-per-line and can use the following syntax. OCLC numbers in lines must:
+#
+# * Start the line with at least 4 and at most 9 digits. 
+# * May include a leading '+', '-', or ' ' and are treated as follows.
+#  
+# * SET: the script will ignore lines that start with ' ', '-', or any
+#   non-integer value.
+#  
+# * UNSET: the script will ignore lines that start with ' ', '+', or any
+#   non-integer value. That is, if a line starts with an integer larger than 
+#   9999, the OCLC number is considered a delete record if the '--unset' 
+#   switch is used.
+# param: Path to the list of OCLC numbers. 
+# param: Keyword (str) of either 'set' or 'unset'. 
+# param: Debug bool, if you want debug information displayed. 
+# return: List of OCLC numbers to be set or unset.
 def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
     """
-    >>> n = _read_num_file_('test.set', 'set', False)
-    >>> n
+    >>> _read_num_file_('test.set', 'set', False)
     ['12345', '6789']
-    >>> n = _read_num_file_('test.set', 'unset', False)
-    >>> n
+    >>> _read_num_file_('test.set', 'unset', False)
     ['12345', '101112']
     """
     nums = []
@@ -73,11 +116,11 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
     with open(num_file, encoding='utf8') as f:
         for line in f:
             if set_unset == 'set':
-                num = _find_set_(line)
+                num = _find_set_(line.rstrip())
                 if num:
                     nums.append(num)
             elif set_unset == 'unset':
-                num = _find_unset_(line)
+                num = _find_unset_(line.rstrip())
                 if num:
                     nums.append(num)
             else: # neither 'set' nor 'unset'
