@@ -106,9 +106,9 @@ def _find_unset_(line):
 # return: List of OCLC numbers to be set or unset.
 def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
     """
-    >>> _read_num_file_('test.set', 'set', False)
+    >>> _read_num_file_('test/test.set', 'set', False)
     ['12345', '6789']
-    >>> _read_num_file_('test.set', 'unset', False)
+    >>> _read_num_file_('test/test.set', 'unset', False)
     ['12345', '101112']
     """
     nums = []
