@@ -11,3 +11,4 @@ lib/__pycache__/
 *.xml
 *.db
 test/*.lst
+test.py
