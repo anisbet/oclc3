@@ -21,32 +21,30 @@ import datetime
 import base64
 import requests
 import json
-import os
+from os.path import dirname, join, exists
+import yaml
 
 TOKEN_CACHE = '_auth_.json'
-# TODO: Manage authentication.
+
 class OclcService:
 
-    # Possible useful arguments to the constructor.
-    # clientId:str='some_id'
-    # secret:str='s3cR3t'
-    # registryId:str='128807'
-    # institutionalSymbol:str='CNEDM'
-    # debug:bool=False
-    def __init__(self, configs:dict = {}, debug:bool=False):
-        self.client_id = ''
-        self.secret = ''
-        self.inst_id = ''
-        self.inst_symbol = ''
-        self.auth_json = ''
-        try:
-            self.client_id   = configs.get('clientId')
-            self.secret      = configs.get('secret')
-            self.inst_id     = configs.get('registryId')
-            self.inst_symbol = configs.get('institutionalSymbol')
-            self.debug       = debug
-        except KeyError:
-            pass # They will get set somewhere else or we are testing.
+    # TODO: fix so this reads the yaml file itself. and change test to False in production.
+    def __init__(self, yaml_path:str, debug:bool=False):
+        yaml_file = join(dirname(__file__), '..', yaml_path)
+        if exists(yaml_file):
+            with open(yaml_file) as f:
+                try:
+                    self.configs = yaml.safe_load(f)
+                    self.client_id = self.configs['service']['clientId']
+                    self.secret = self.configs['service']['secret']
+                    self.inst_id = self.configs['service']['registryId']
+                    self.inst_symbol = self.configs['service']['institutionalSymbol']
+                except yaml.YAMLError as exc:
+                    sys.stderr.write(f"{exc}")
+        else:
+            sys.stderr.write(f"*error, yaml file not found! Expected '{yaml_file}'")
+            sys.exit()
+        self.debug = debug
         if len(self.client_id) > 0 and len(self.secret) > 0:
             self.auth_json = self._authenticate_worldcat_metadata_()
         # If successful the self.auth_json object will contain the following.
@@ -68,7 +66,7 @@ class OclcService:
     # Return: True if the token expires_at time has passed and False otherwise.
     def _is_expired_(self, expires_at:str):
         """
-        >>> oclc = OclcService()
+        >>> oclc = OclcService('test.yaml')
         >>> oclc._is_expired_("2023-01-31 20:59:39Z")
         True
         >>> oclc._is_expired_("2050-01-31 00:59:39Z")
@@ -93,18 +91,19 @@ class OclcService:
     # permits in one call. See parameter count for more information.
     # Param:  list of OCLC numbers or strings of numbers.
     # Param:  Optional integer of the max number of OCLC numbers allowed as URL
-    #   parameters to the web service call. Default 50.
+    #   parameters to the web service call. Default 50, the limit specified by
+    #   OCLC for most calls that take batches of numbers.
     def _list_to_param_str_(self, numbers:list, max:int = 50):
         """
         >>> L1 = [1,2,3]
-        >>> service = OclcService()
-        >>> service._list_to_param_str_(L1)
+        >>> ws = OclcService('test.yaml')
+        >>> ws._list_to_param_str_(L1)
         '1,2,3'
         >>> L1 = ['1','2','3']
-        >>> service._list_to_param_str_(L1)
+        >>> ws._list_to_param_str_(L1)
         '1,2,3'
         >>> L1 = ["1","2","3"]
-        >>> service._list_to_param_str_(L1)
+        >>> ws._list_to_param_str_(L1)
         '1,2,3'
         """
         param_list = []
@@ -216,7 +215,7 @@ class OclcService:
         #  }]
         # }
         # return the list of remaining OCLC numbers and JSON results.
-        return [oclcNumbers, response.json()]
+        return response.json()
 
 
     # Used to create a bibliographic record.
@@ -308,7 +307,7 @@ class OclcService:
 
     # Used to update a bibliographic with holdings at a specific branch.
     # param: record in XML. 
-    # return: XML record, or XML error message. 
+    # return: XML record, or XML error message. HTTP code 200.
     # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
@@ -349,9 +348,26 @@ class OclcService:
         #     </datafield>
         # </record>      
         # '
+        # Response XML like:
+        # <?xml version="1.0" encoding="UTF-8"?> <entry xmlns="http://www.w3.org/2005/Atom">
+        # <content type="application/xml">
+        #     <response xmlns="http://worldcat.org/rb" mimeType="application/vnd.oclc.marc21+xml">
+        #         <record xmlns="http://www.loc.gov/MARC21/slim">
+        #             <leader>00000cam a2200000 a 4500</leader>
+        #             <controlfield tag="001">ocn311684437</controlfield>
+        #             <controlfield tag="003">OCoLC</controlfield>
+        #             <controlfield tag="005">20200327224019.6</controlfield>
+        #             <controlfield tag="008">080916s2009    paua          000 1 eng  </controlfield>
+        #             <datafield tag="010" ind1=" " ind2=" ">
+        #                 <subfield code="a">  2008937609</subfield>
+        #             </datafield>
+        #             <datafield tag="040" ind1=" " ind2=" ">
+        #                 <subfield code="a">DLC</subfield>
+        #   ... 
+        # and a HTTP code of 200
         return response.content()
 
-    # Create / set institurional holdings. Used to let OCLC know a library has a title. 
+    # Create / set institutional holdings. Used to let OCLC know a library has a title. 
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
     # and the remaining returned.
     # The successful request is returned:
@@ -421,7 +437,8 @@ class OclcService:
         # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' \
         # -d ''
         # https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB
-        return [oclcNumbers, response.json()]
+        # The response is usually empty, with an HTTP code of 201
+        return response.json()
 
     # Unset / delete institutional holdings. Used to let OCLC know we don't have a title anymore.
     # param: oclcNumbers - list of oclc integers, as strings. The method will send the max allowable,
@@ -447,84 +464,8 @@ class OclcService:
         # -H 'Authorization: Bearer xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         # Request URL
         # https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB
-        return [oclcNumbers, response.json()]
-
-    # Checks the current oclc number for provided numbers.
-    # {
-    # "entries": [
-    #     {
-    #     "title": "12345678",
-    #     "content": {
-    #         "requestedOclcNumber": "12345678",
-    #         "currentOclcNumber": "12345678",
-    #         "institution": "OCPSB",
-    #         "status": "HTTP 200 OK",
-    #         "detail": "Record found.",
-    #         "id": "http://worldcat.org/oclc/12345678",
-    #         "found": true,
-    #         "merged": false
-    #     },
-    #     "updated": "2023-02-11T03:53:12.365Z"
-    #     },
-    #     {
-    #     "title": "87654321",
-    #     "content": {
-    #         "requestedOclcNumber": "87654321",
-    #         "currentOclcNumber": "87654321",
-    #         "institution": "OCPSB",
-    #         "status": "HTTP 404 Not Found",
-    #         "detail": "Record not found.",
-    #         "id": "http://worldcat.org/oclc/87654321",
-    #         "found": false,
-    #         "merged": false
-    #     },
-    #     "updated": "2023-02-11T03:53:12.365Z"
-    #     }
-    # ],
-    # "extensions": [
-    #     {
-    #     "name": "os:totalResults",
-    #     "attributes": {
-    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-    #     },
-    #     "children": [
-    #         "2"
-    #     ]
-    #     },
-    #     {
-    #     "name": "os:startIndex",
-    #     "attributes": {
-    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-    #     },
-    #     "children": [
-    #         "1"
-    #     ]
-    #     },
-    #     {
-    #     "name": "os:itemsPerPage",
-    #     "attributes": {
-    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-    #     },
-    #     "children": [
-    #         "2"
-    #     ]
-    #     }
-    # ]
-    # } 
-    def check_control_numbers(self, oclcNumbers:list) -> list:
-        access_token = self._get_access_token_()
-        headers = {
-            "accept": "application/atom+json",
-            "Authorization": f"Bearer {access_token}"
-        }
-        param_str = self._list_to_param_str_(oclcNumbers)
-        url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
-        response = requests.get(url=url, headers=headers)
-        # curl -X 'GET' \
-        # 'https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers=12345678,87654321' \
-        # -H 'accept: application/atom+json' \
-        # -H 'Authorization: Bearer tk_tP3Q1weM8zPY7RJkpYSCV4Y91smMFU21ng1t'
-        return [oclcNumbers, response.json()]
+        # The response can be saved to the report database.
+        return response.json()
 
 if __name__ == "__main__":
     import doctest
