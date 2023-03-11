@@ -17,31 +17,48 @@
 # limitations under the License.
 #
 ###############################################################################
-import os
 import sqlite3
+import yaml
+from os.path import dirname, join, exists
 
-DEFAULT_DB_NAME = 'test.db'
-MAX_RECORDS_COMMIT = 500   # Number of records to insert before committing.
+MAX_RECORDS_COMMIT = 10   # Number of records to insert before committing.
 # Creates reports parsing JSON output into sqlite3 database for easy analysis.
+
+# The configurations for the database are found in a file 'oclc.yaml' in the
+# root of the project directory (the directory above ./lib).
 class OclcRpt:
-
-    def __init__(self, db_name:str='', debug:bool=False):
-        self.db_name = DEFAULT_DB_NAME
+    # Creates the object with settings from oclc.yaml by default.
+    def __init__(self, yaml_file:str, debug:bool=False):
+        yaml_file = join(dirname(__file__), '..', yaml_file)
+        if exists(yaml_file):
+            with open(yaml_file) as YAML:
+                try:
+                    self.configs = yaml.safe_load(YAML)
+                    self.db = self.configs['database']['name']
+                    self.db_path = self.configs['database']['path']
+                    self.add_table = self.configs['database']['add_table_name']
+                    self.del_table = self.configs['database']['del_table_name']
+                except yaml.YAMLError as exc:
+                    sys.stderr.write(f"{exc}")
+        else:
+            sys.stderr.write(f"*error, yaml file not found! Expected '{yaml_file}'")
+            sys.exit()
         self.debug = debug
-        if db_name != '' and db_name != None:
-            self.db_name = db_name
 
-    def _create_table_(self, columns:list, table_name:str):
+    # Creates a table in the sqlite3 database with the argument table
+    # name and columns provided. 
+    # param: table name string, setting found in yaml. 
+    # param: columns list of string names of the columns.
+    def _create_table_(self, table_name:str, columns:list):
         """
-        >>> o = OclcRpt('test00.db', True)
+        >>> o = OclcRpt('test.yaml', True)
         >>> cols = ['a','b','c']
-        >>> o._create_table_(cols, 'test')
+        >>> o._create_table_('test', cols)
         create query: CREATE TABLE IF NOT EXISTS test (
             a TEXT,
             b TEXT,
             c TEXT
         )
-        >>> os.remove('test00.db')
         """
         create_str = f"CREATE TABLE IF NOT EXISTS {table_name} (\n"
         for i in range(0, len(columns)):
@@ -53,7 +70,7 @@ class OclcRpt:
         create_str += f")"
         if self.debug:
             print(f"create query: {create_str}")
-        db = sqlite3.connect(self.db_name)
+        db = sqlite3.connect(self.db)
         cursor = db.cursor()
         cursor.execute(f"{create_str}")
         db.commit()
@@ -84,12 +101,12 @@ class OclcRpt:
     #         "updated": "2023-01-31T20:39:40.089Z"
     #     }]
     # }
-    def db_load_get_holdings_results(self, json_data:dict, table_name:str='oclc'):
+    def set_and_check_reponse(self, json_response:dict, action:str='set'):
         """
         >>> d={"entries":[{"title":"850939592","content":{"requestedOclcNumber":"850939592","currentOclcNumber":"850939592","institution":"OCPSB","status":"HTTP 200 OK","detail":"Record found.","id":"http://worldcat.org/oclc/850939592","found":True,"merged":False},"updated":"2023-01-31T20:39:40.088Z"},{"title":"850939596","content":{"requestedOclcNumber":"850939596","currentOclcNumber":"850939596","institution":"OCPSB","status":"HTTP 200 OK","detail":"Record found.","id":"http://worldcat.org/oclc/850939596","found":True,"merged":False},"updated":"2023-01-31T20:39:40.089Z"}]}
-        >>> o = OclcRpt('test00.db', True)
-        >>> o.db_load_get_holdings_results(d, 'test')
-        create query: CREATE TABLE IF NOT EXISTS test (
+        >>> o = OclcRpt('test.yaml', True)
+        >>> o.set_and_check_reponse(d)
+        create query: CREATE TABLE IF NOT EXISTS added (
             title TEXT,
             requestedOclcNumber TEXT,
             currentOclcNumber TEXT,
@@ -103,14 +120,14 @@ class OclcRpt:
         )
         loaded 2 records.
         """
-        records = json_data
+        records = json_response
         # Expected, and useful columns from web service JSON output.
         columns = ['title', 'requestedOclcNumber', 'currentOclcNumber', 'institution', 'status', 'detail', 'id', 'found', 'merged', 'updated']
-        self._create_table_(columns, table_name)
+        self._create_table_(self.add_table, columns)
         # Insert values from the JSON.
-        db = sqlite3.connect(self.db_name)
+        db = sqlite3.connect(self.db)
         cursor = db.cursor()
-        query = f"INSERT INTO {table_name} VALUES (?,?,?,?,?,?,?,?,?,?)"
+        query = f"INSERT INTO {self.add_table} VALUES (?,?,?,?,?,?,?,?,?,?)"
         count = 0
         for entry in records['entries']:
             record = {}
