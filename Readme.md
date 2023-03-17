@@ -2,6 +2,27 @@
 
 `oclc` is a Python application to manage library holdings in OCLC's [WorldCat discovery](https://www.worldcat.org/) database through [WorldCat Metadata web services](https://www.oclc.org/developer/develop/web-services.en.html). [See here for more information](#regular-worldcat-maintenance).
 
+## Testing
+The application is controlled by a YAML file which contains the following values.
+```yaml
+# Setting oclc3 uses.
+service: 
+  name:          'WCMetaDataTest'
+  clientId:      'some_long_hex_string'
+  secret:        'p@ssW0rD!_or_something stronger'
+  registryId:    '128807' # Test registry ID supplied by OCLC.
+  principalId:   'a_long_hash_string_identifier' # Provided but not used.
+  principalIdns: 'urn:oclc:wms:da' # Provided but not used.
+  institutionalSymbol: 'OCPSB' # Test institutional symbol supplied by OCLC.
+
+# Configurations for the database.
+database:
+  name: 'oclc.db'
+  path: '..'   # Location of the database file relative to the 'lib/' directory.
+  add_table_name: 'added' # Table name
+  del_table_name: 'deleted' # Table name - can be (almost) anything you like.
+```
+
 ## Installation
 
 * Clone the project [GitHub](https://github.com/anisbet) a clean folder.

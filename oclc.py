@@ -25,6 +25,9 @@ import argparse
 import re
 from lib.oclcws import OclcService
 
+# Master list of OCLC numbers and instructions produced with --local and --remote flags.
+MASTER_LIST_PATH = 'reclamation_numbers.txt'
+
 # Find set values in a string. 
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
@@ -95,7 +98,7 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
     """
     nums = []
     # Read in a list of OCLC numbers to set.
-    with open(num_file, encoding='utf8') as f:
+    with open(num_file, encoding='utf8', mode='r') as f:
         for line in f:
             if set_unset == 'set':
                 num = _find_set_(line.rstrip())
@@ -110,47 +113,59 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
                 break
     f.close()
     if debug:
-        print(f"numbers read from {num_file}:")
-        print(f"numbers start -> {nums}")
+        print(f"Found {len(nums)} OCLC numbers to {set_unset} in file '{num_file}'.")
+        print(f"The first 3 numbers read are: {nums[:3]}...")
     return nums
 
 # Adds or sets the institutional holdings.
-# param: oclc_nums_file path string to the list of OCLC numbers to add as institutional holdings.
+# param: oclc number list of holdings to set.
 # param: config_yaml string path to the YAML file, containing connection and authentication for 
 #   a given server.
 # return: TODO: TBD
-def _set_holdings_(oclc_nums_path:str, config_yaml:str, debug:bool=False):
-    oclc_numbers = _read_num_file_(oclc_nums_path, 'set', debug)
-    if debug:
-        print(f"Read {len(oclc_numbers)} OCLC numbers from file '{oclc_nums_path}'.")
-        print(f"The first 3 numbers to set are: {oclc_numbers[:3]}...")
-    # Create a web service object. 
-    ws = OclcService(config_yaml)
-    remaining_list = []
-    while oclc_numbers:
-        ws.set_holdings(oclcNumbers)
+# def _update_holdings_(oclc_numbers:list, config_yaml:str, debug:bool=False):
+#     # Create a web service object. 
+#     ws = OclcService(config_yaml, debug)
+#     count = 0
+#     while oclc_numbers:
+#         start_length = len(oclc_numbers)
+#         # TODO: handle results via the oclc report.
+#         ws.set_holdings(oclc_numbers)
+#         batch_count = start_length - len(oclc_numbers)
+#         count += batch_count
+#         print(f"batched {batch_count} records...")
+#     print(f"processed {count} total records.")
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.
-# param:  oclcnum_file path to OCLC numbers they have on record. 
-# param:  librarynums_file path to list of numbers library has.
-def _diff_(remote_nums:list, local_nums:list) -> list:
+# param:  List of oclc numbers to delete or unset.
+# param:  List of oclc numbers to set or add. 
+def _diff_(del_nums:list, add_nums:list) -> list:
     """
+    >>> u = []
+    >>> s = [2,3,4]
+    >>> M = _diff_(u, s)
+    >>> print(M)
+    ['+2', '+3', '+4']
+    >>> u = [1,2,3]
+    >>> s = []
+    >>> M = _diff_(u, s)
+    >>> print(M)
+    ['-1', '-2', '-3']
     >>> r = [1,2,3]
     >>> l = [2,3,4]
-    >>> R = _diff_(r, l)
-    >>> print(R)
+    >>> M = _diff_(r, l)
+    >>> print(M)
     ['-1', ' 2', ' 3', '+4']
     """
     # Store uniq nums and sign.
     ret_dict = {}
-    for oclcnum in remote_nums:
-        if oclcnum in local_nums:
+    for oclcnum in del_nums:
+        if oclcnum in add_nums:
             ret_dict[oclcnum] = " "
         else:
             ret_dict[oclcnum] = "-"
-    for libnum in local_nums:
-        if libnum in remote_nums:
+    for libnum in add_nums:
+        if libnum in del_nums:
             ret_dict[libnum] = " "
         else:
             ret_dict[libnum] = "+"
@@ -176,28 +191,33 @@ def main(argv):
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
-    parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', default='oclc.yaml', help='alternate YAML file for testing. Default oclc.yaml')
+    parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing. Default oclc.yaml')
     args = parser.parse_args()
     
     # Load configuration.
     if args.yaml and os.path.isfile(args.yaml) == False:
         sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
         sys.exit()
-    config_yaml = args.yaml
+    
     if args.debug:
         print(f"debug: '{args.debug}'")
-        print(f"config_yaml: '{config_yaml}'")
+        print(f"yaml: '{args.yaml}'")
         print(f"set: '{args.set}'")
         print(f"unset: '{args.unset}'")
         print(f"local: '{args.local}'")
         print(f"remote: '{args.remote}'")
         print(f"xml records: '{args.xml_records}'")
 
-
+    # Two lists, one for adding holdings and one for deleting holdings. 
+    set_holdings   = []
+    unset_holdings = []
     # Add records to institution's holdings.
     if args.set:
+        if args.debug:
+            print(f"Running set.")
         if os.path.isfile(args.set):
-            _set_holdings_(args.set, config_yaml)
+            set_holdings.clear()
+            set_holdings = _read_num_file_(args.set, 'set', args.debug)
         else:
             sys.stderr.write(f"*error, 'set' requires file of oclc numbers but file '{args.set}' was not found.\n")
             sys.exit()
@@ -205,8 +225,11 @@ def main(argv):
 
     # delete records from institutional holdings.
     if args.unset:
+        if args.debug:
+            print(f"Running unset")
         if os.path.isfile(args.unset):
-            pass
+            unset_holdings.clear()
+            unset_holdings = _read_num_file_(args.unset, 'unset', args.debug)
         else:
             sys.stderr.write(f"*error, no such file: '{args.unset}'.\n")
             sys.exit()
@@ -214,42 +237,74 @@ def main(argv):
 
     # Upload XML MARC21 records.
     if args.xml_records:
+        if args.debug:
+            print(f"Running XML MARC file upload.")
         if os.path.isfile(args.xml_records):
             pass
         else:
             sys.stderr.write(f"*error, no XML record file called '{args.xml_records}' was found!\n")
             sys.exit()
     
-    # Reclamation report
-    local_holdings = []
-    remote_holdings= []
-    if args.local and os.path.isfile(args.local):
-        # read the local file with _find_set_().
-        local_holdings = _read_num_file_(args.local, 'set', True)
-    else:
-        sys.stderr.write(f"*error, local file list missing or empty ({args.local}).\n")
-        sys.exit()
-    if args.remote and os.path.isfile(args.remote):
-        # read the remote file with _find_set_().
-        remote_holdings = _read_num_file_(args.remote, 'unset', True)
-    else:
-        sys.stderr.write(f"*error, remote file list missing or empty ({args.remote}).\n")
-        sys.exit()
-    if local_holdings and remote_holdings:
-        reclamation_list = _diff_(remote_holdings, local_holdings)
-        with open('reclamation.lst', encoding='utf8') as f:
-            for holding in reclamation_list:
-                print(f"{holding}")
-                f.write(f"{holding}")
-        f.close()
-    else:
-        sys.stderr.write(f"*error, both local or remote lists required, but not supplied:\n")
-        sys.stderr.write(f"*error, local list: ({args.local}), remote list: ({args.remote}).\n")
-        sys.exit()
+    # Reclamation report that is both files must exist and be read.
+    if args.local and args.remote:
+        # Read the list of local holdings. See Readme.md for more information on how
+        # to collect OCLC numbers from the ILS.
+        if args.debug:
+            print(f"Reading local holdings list.")
+        if os.path.isfile(args.local):
+            set_holdings.clear()
+            set_holdings = _read_num_file_(args.local, 'set', args.debug)
+        else:
+            sys.stderr.write(f"*error, local file list missing or empty ({args.local}).\n")
+            sys.exit()
+        # Read the report of remote holdings (holdings at OCLC)
+        if args.debug:
+            print(f"Reading remote holdings list from OCLC report.")
+        if os.path.isfile(args.remote):
+            unset_holdings.clear()
+            unset_holdings = _read_num_file_(args.remote, 'unset', args.debug)
+        else:
+            sys.stderr.write(f"*error, remote file list missing or empty ({args.remote}).\n")
+            sys.exit()
 
+    
+    # Create a 'master' list that indicates with are to be removed 
+    # and which are to be added, then exit. The script can then be re-run
+    # using the same file for both the '--set' and '--unset' flags to run
+    # the master. Check the list first before beginning.
+    master_list = _diff_(unset_holdings, set_holdings)
+    with open(MASTER_LIST_PATH, encoding='utf8', mode='w') as f:
+        for holding in master_list:
+            if args.debug:
+                print(f"{holding}")
+            f.write(f"{holding}\n")
+    f.close()
+
+    if os.path.exists(MASTER_LIST_PATH) and os.path.getsize(MASTER_LIST_PATH) > 0:
+        if args.debug:
+            print(f"check {MASTER_LIST_PATH} for OCLC numbers and processing instructions.")
+        with open(MASTER_LIST_PATH, encoding='utf-8', mode='r') as f:
+            temp = f.readlines()
+        f.close()
+        set_holdings.clear()
+        unset_holdings.clear()
+        for number in temp:
+            number = number.rstrip()
+            print(f"DEBUG:>> {number}")
+            if number.startswith('+'):
+                set_holdings.append(number[1:])
+            elif number.startswith('-'):
+                unset_holdings.append(number[1:])
+            else:
+                continue
+        print(f"DEBUG: ADD == {set_holdings}")
+        print(f"DEBUG: DEL == {unset_holdings}")
+    else:
+        print(f"Nothing to do.")
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
-    main(sys.argv[1:])
+    # Pass tests to run.
+    if doctest.testmod():
+        main(sys.argv[1:])
 # EOF

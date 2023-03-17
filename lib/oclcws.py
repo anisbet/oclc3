@@ -28,7 +28,7 @@ TOKEN_CACHE = '_auth_.json'
 
 class OclcService:
 
-    # TODO: fix so this reads the yaml file itself. and change test to False in production.
+    # Reads the yaml file for necessary configs.
     def __init__(self, yaml_path:str, debug:bool=False):
         yaml_file = join(dirname(__file__), '..', yaml_path)
         if exists(yaml_file):

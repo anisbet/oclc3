@@ -12,3 +12,7 @@ lib/__pycache__/
 *.db
 test/*.lst
 test.py
+test/
+data/
+scripts/
+*.lst
