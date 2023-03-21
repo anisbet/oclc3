@@ -234,6 +234,7 @@ def main(argv):
         epilog='See "-h" for help more information.'
     )
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+    parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
@@ -250,15 +251,20 @@ def main(argv):
         sys.exit()
     
     if args.debug:
+        print(f"check: '{args.check}'")
         print(f"debug: '{args.debug}'")
         print(f"local: '{args.local}'")
+        print(f"remote: '{args.remote}'")
         print(f"set: '{args.set}'")
         print(f"unset: '{args.unset}'")
-        print(f"remote: '{args.remote}'")
         print(f"update: '{args.update}'")
         print(f"xml records: '{args.xml_records}'")
         print(f"yaml: '{args.yaml}'")
 
+    # Upload XML MARC21 records.
+    if args.xml_records:
+        pass
+    
     # Two lists, one for adding holdings and one for deleting holdings. 
     set_holdings   = []
     unset_holdings = []
@@ -267,15 +273,13 @@ def main(argv):
     if args.set:
         set_holdings = _read_num_file_(args.set, 'set', args.debug)
         
-
     # delete records from institutional holdings.
     if args.unset:
         unset_holdings = _read_num_file_(args.unset, 'unset', args.debug)
 
-    # Upload XML MARC21 records.
-    if args.xml_records:
-        pass
-    
+    if args.check:
+        check_holdings = _read_num_file_(args.check, 'check', args.debug)
+
     # Reclamation report that is both files must exist and be read.
     if args.local and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
@@ -292,6 +296,8 @@ def main(argv):
         master_list = _diff_(unset_holdings, set_holdings)
         write_master(MASTER_LIST_PATH, master_list=master_list)
         read_master(MASTER_LIST_PATH, debug=args.debug)
+
+        
     # Call the web service with the appropriate list, and capture results.
     if args.update:
         pass
