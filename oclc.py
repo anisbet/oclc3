@@ -26,23 +26,12 @@ import re
 from lib.oclcws import OclcService
 
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
-MASTER_LIST_PATH = 'reclamation_numbers.txt'
-
+MASTER_LIST_PATH = 'master.lst'
+TEST = True
 # Find set values in a string. 
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
 def _find_set_(line):
-    """ 
-    >>> _find_set_('12345.012 is the number you are looking for')
-    >>> _find_set_('12345')
-    '12345'
-    >>> _find_set_('-12345')
-    >>> _find_set_('+12345')
-    '12345'
-    >>> _find_set_(' 12345')
-    >>> _find_set_('12345 is the number you are looking for')
-    '12345'
-    """
     regex = re.compile(r'^[+]?\d{4,14}\b(?!\.)')
     match = regex.match(line)
     if match:
@@ -54,21 +43,21 @@ def _find_set_(line):
 # param: line str to search. 
 # return: The matching OCLC number or nothing if no match.
 def _find_unset_(line):
-    """ 
-    >>> _find_unset_('12345.012 is the number you are looking for')
-    >>> _find_unset_('12345')
-    '12345'
-    >>> _find_unset_('+12345')
-    >>> _find_unset_('-12345')
-    '12345'
-    >>> _find_unset_(' 12345')
-    >>> _find_unset_('12345 is the number you are looking for')
-    '12345'
-    """
     regex = re.compile(r'^[-]?\d{4,14}\b(?!\.)')
     match = regex.match(line)
     if match:
         if match.group(0).startswith('-'):
+            return match.group(0)[1:]
+        return match.group(0)
+
+# Find oclc numbers that need checking. 
+# param: line str from OCLC number list file. 
+# return: The matching OCLC number or nothing if no match.
+def _find_check_(line):
+    regex = re.compile(r'^[?]?\d{4,14}\b(?!\.)')
+    match = regex.match(line)
+    if match:
+        if match.group(0).startswith('?'):
             return match.group(0)[1:]
         return match.group(0)
 
@@ -89,7 +78,7 @@ def _find_unset_(line):
 # param: Keyword (str) of either 'set' or 'unset'. 
 # param: Debug bool, if you want debug information displayed. 
 # return: List of OCLC numbers to be set or unset.
-def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
+def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
     """
     >>> _read_num_file_('test/test.set', 'set', False)
     ['12345', '6789']
@@ -97,6 +86,12 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
     ['12345', '101112']
     """
     nums = []
+    if args.debug:
+        print(f"Running {set_unset}")
+    if not os.path.isfile(num_file):
+        sys.stderr.write(f"*error, no such file: '{num_file}'.\n")
+        return nums
+
     # Read in a list of OCLC numbers to set.
     with open(num_file, encoding='utf8', mode='r') as f:
         for line in f:
@@ -108,14 +103,70 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False):
                 num = _find_unset_(line.rstrip())
                 if num:
                     nums.append(num)
-            else: # neither 'set' nor 'unset'
-                sys.stderr.write(f"*error, invalid or missing 'set_unset' value: '{set_unset}'!")
+            elif set_unset == 'check':
+                num = _find_check_(line.rstrip())
+                if num:
+                    nums.append(num)
+            else: # neither 'set', 'check', nor 'unset'
+                sys.stderr.write(f"*error, invalid parameter: '{set_unset}'!")
                 break
     f.close()
     if debug:
         print(f"Found {len(nums)} OCLC numbers to {set_unset} in file '{num_file}'.")
         print(f"The first 3 numbers read are: {nums[:3]}...")
     return nums
+
+# Write out the master list. Do not append, delete if exists.
+# param: path string of the master list. Default 'master.lst'.
+# param: list of oclc numbers to write to the master file. The 
+#   list will consist of integers prefixed with either '+', '-'
+#   '?', or ' '.
+# param: debug writes diagnostic info to stdout if True.
+def write_master(path:str='master.lst', oclc_num_list:list=[], debug:bool=True):
+    with open(path, encoding='utf8', mode='w') as f:
+        for holding in oclc_num_list:
+            if debug:
+                print(f"{holding}")
+            f.write(f"{holding}\n")
+    f.close()
+
+# Reads the master list of instructions. The master list is created by a
+# either '--set', '--unset', or the combination of '--local' and '--remote'.
+# param: path of the master list. String.
+# param: list of oclc numbers to add. The list is just integers.
+# param: list of oclc numbers to delete. List of integers.
+# param: list of oclc numbers to check. Ditto integers.
+# param: debug writes diagnostic info to stdout if True.
+# return:
+def read_master(
+    path:str='master.lst', 
+    add_list:list=[], 
+    del_list:list=[], 
+    check_list:list=[], 
+    debug:bool=True):
+    if os.path.exists(path) and os.path.getsize(path) > 0:
+        if debug:
+            print(f"checking {path} for OCLC numbers and processing instructions.")
+        with open(path, encoding='utf-8', mode='r') as f:
+            temp = f.readlines()
+        f.close()
+        # Clear in case used from another switch.
+        add_list.clear()
+        del_list.clear()
+        for number in temp:
+            number = number.rstrip()
+            if number.startswith('+'):
+                add_list.append(number[1:])
+            elif number.startswith('-'):
+                del_list.append(number[1:])
+            elif number.startswith('?'):
+                check_list.append(number[1:])
+            else:
+                continue
+        if debug:
+            print(f"first 5 add records: {add_list[:5]}")
+            print(f"first 5 del records: {del_list[:5]}")
+            print(f"first 5 chk records: {check_list[:5]}")
 
 # Adds or sets the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -187,11 +238,12 @@ def main(argv):
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
     parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
+    parser.add_argument('-U', '--update', action='store_true', default=False, help='Will update the database with instructions found in the "master.lst".')
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
-    parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing. Default oclc.yaml')
+    parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
     
     # Load configuration.
@@ -201,110 +253,71 @@ def main(argv):
     
     if args.debug:
         print(f"debug: '{args.debug}'")
-        print(f"yaml: '{args.yaml}'")
+        print(f"local: '{args.local}'")
         print(f"set: '{args.set}'")
         print(f"unset: '{args.unset}'")
-        print(f"local: '{args.local}'")
         print(f"remote: '{args.remote}'")
         print(f"xml records: '{args.xml_records}'")
+        print(f"yaml: '{args.yaml}'")
 
     # Two lists, one for adding holdings and one for deleting holdings. 
     set_holdings   = []
     unset_holdings = []
     # Add records to institution's holdings.
     if args.set:
+        set_holdings = _read_num_file_(args.set, 'set', args.debug)
+        # Write out the instructions and clean list. Acts like a receipt.
+        write_master(MASTER_LIST_PATH, oclc_num_list=set_holdings)
+        read_master(MASTER_LIST_PATH, set_holdings, debug=args.debug)
+        # report = 
+        # add_holdings(oclc_numbers=set_holdings)
         if args.debug:
-            print(f"Running set.")
-        if os.path.isfile(args.set):
-            set_holdings.clear()
-            set_holdings = _read_num_file_(args.set, 'set', args.debug)
-        else:
-            sys.stderr.write(f"*error, 'set' requires file of oclc numbers but file '{args.set}' was not found.\n")
-            sys.exit()
-
+            print(f"set holdings exiting.")
+        sys.exit()
 
     # delete records from institutional holdings.
     if args.unset:
+        unset_holdings = _read_num_file_(args.unset, 'unset', args.debug)
+        # Write out the instructions and clean list. Acts like a receipt.
+        write_master(MASTER_LIST_PATH, oclc_num_list=unset_holdings)
+        read_master(MASTER_LIST_PATH, unset_holdings, debug=args.debug)
+        # report = 
+        # del_holdings(oclc_numbers=unset_holdings)
         if args.debug:
-            print(f"Running unset")
-        if os.path.isfile(args.unset):
-            unset_holdings.clear()
-            unset_holdings = _read_num_file_(args.unset, 'unset', args.debug)
-        else:
-            sys.stderr.write(f"*error, no such file: '{args.unset}'.\n")
-            sys.exit()
-
+            print(f"unset holdings exiting.")
+        sys.exit()
 
     # Upload XML MARC21 records.
     if args.xml_records:
-        if args.debug:
-            print(f"Running XML MARC file upload.")
-        if os.path.isfile(args.xml_records):
-            pass
-        else:
-            sys.stderr.write(f"*error, no XML record file called '{args.xml_records}' was found!\n")
-            sys.exit()
+        pass
     
     # Reclamation report that is both files must exist and be read.
     if args.local and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
-        if args.debug:
-            print(f"Reading local holdings list.")
-        if os.path.isfile(args.local):
-            set_holdings.clear()
-            set_holdings = _read_num_file_(args.local, 'set', args.debug)
-        else:
-            sys.stderr.write(f"*error, local file list missing or empty ({args.local}).\n")
-            sys.exit()
-        # Read the report of remote holdings (holdings at OCLC)
-        if args.debug:
-            print(f"Reading remote holdings list from OCLC report.")
-        if os.path.isfile(args.remote):
-            unset_holdings.clear()
-            unset_holdings = _read_num_file_(args.remote, 'unset', args.debug)
-        else:
-            sys.stderr.write(f"*error, remote file list missing or empty ({args.remote}).\n")
-            sys.exit()
-
-    
-    # Create a 'master' list that indicates with are to be removed 
-    # and which are to be added, then exit. The script can then be re-run
-    # using the same file for both the '--set' and '--unset' flags to run
-    # the master. Check the list first before beginning.
-    master_list = _diff_(unset_holdings, set_holdings)
-    with open(MASTER_LIST_PATH, encoding='utf8', mode='w') as f:
-        for holding in master_list:
-            if args.debug:
-                print(f"{holding}")
-            f.write(f"{holding}\n")
-    f.close()
-
-    if os.path.exists(MASTER_LIST_PATH) and os.path.getsize(MASTER_LIST_PATH) > 0:
-        if args.debug:
-            print(f"check {MASTER_LIST_PATH} for OCLC numbers and processing instructions.")
-        with open(MASTER_LIST_PATH, encoding='utf-8', mode='r') as f:
-            temp = f.readlines()
-        f.close()
         set_holdings.clear()
+        set_holdings = _read_num_file_(args.local, 'set', args.debug)
+        # Read the report of remote holdings (holdings at OCLC)
         unset_holdings.clear()
-        for number in temp:
-            number = number.rstrip()
-            print(f"DEBUG:>> {number}")
-            if number.startswith('+'):
-                set_holdings.append(number[1:])
-            elif number.startswith('-'):
-                unset_holdings.append(number[1:])
-            else:
-                continue
-        print(f"DEBUG: ADD == {set_holdings}")
-        print(f"DEBUG: DEL == {unset_holdings}")
-    else:
-        print(f"Nothing to do.")
+        unset_holdings = _read_num_file_(args.remote, 'unset', args.debug)
+        # Create a 'master' list that indicates with are to be removed 
+        # and which are to be added, then exit. The script can then be re-run
+        # using the same file for both the '--set' and '--unset' flags to run
+        # the master. Check the list first before beginning.
+        master_list = _diff_(unset_holdings, set_holdings)
+        write_master(MASTER_LIST_PATH, oclc_num_list=master_list)
+        read_master(MASTER_LIST_PATH, set_holdings, unset_holdings, debug=args.debug)
+    # Call the web service with the appropriate list, and capture results.
+    if args.update:
+        read_master(MASTER_LIST_PATH, set_holdings, unset_holdings, args.debug)
+        if set_holdings:
+            pass
+
 
 if __name__ == "__main__":
-    import doctest
-    # Pass tests to run.
-    if doctest.testmod():
+    if TEST:
+        import doctest
+        doctest.testfile("tests/find.txt")
+    else:
         main(sys.argv[1:])
 # EOF

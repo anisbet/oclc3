@@ -2,10 +2,13 @@
 
 `oclc` is a Python application to manage library holdings in OCLC's [WorldCat discovery](https://www.worldcat.org/) database through [WorldCat Metadata web services](https://www.oclc.org/developer/develop/web-services.en.html). [See here for more information](#regular-worldcat-maintenance).
 
+## Requesting Web Services Keys
+you can get info about keys [from this link](https://www.oclc.org/developer/api/keys.en.html) and [request keys here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost) after entering your institution's symbol.
+
 ## Testing
 The application is controlled by a YAML file which contains the following values.
 ```yaml
-# Setting oclc3 uses.
+# Setting oclc3 uses, 
 service: 
   name:          'WCMetaDataTest'
   clientId:      'some_long_hex_string'
@@ -22,6 +25,60 @@ database:
   add_table_name: 'added' # Table name
   del_table_name: 'deleted' # Table name - can be (almost) anything you like.
 ```
+Once set up the script can be run from the command line as follows.
+### Help
+```bash
+# For help use...
+python3 oclc.py --help
+usage: oclc [options]
+
+Maintains holdings in OCLC WorldCat Search.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+  -s [/foo/bar.txt], --set [/foo/bar.txt]
+                        OCLC numbers to add or set in WorldCat.
+  -u [/foo/bar.txt], --unset [/foo/bar.txt]
+                        OCLC numbers to delete from WorldCat.
+  -r [/foo/remote.lst], --remote [/foo/remote.lst]
+                        Remote (OCLC) numbers list from WorldCat holdings report.
+  -l [/foo/local.lst], --local [/foo/local.lst]
+                        Local OCLC numbers list collected from the library's ILS.
+  -x XML_RECORDS, --xml_records XML_RECORDS
+                        file of MARC21 XML catalog records to submit as special local holdings.
+  -d, --debug           turn on debugging.
+  -y [/foo/test.yaml], --yaml [/foo/test.yaml]
+                        alternate YAML file for testing.
+
+See "-h" for help more information.
+```
+### Add / Set OCLC numbers
+See [the add documentation](#regular-worldcat-maintenance) for more information.
+```bash
+# With a list of OCLC numbers to add/update on OCLC's sandbox with
+# a file of OCLC numbers called add_me.lst...
+python3 oclc.py --yaml=test.yaml --set add_me.lst
+ ...
+```
+
+### Delete / Unset OCLC numbers
+See [the delete documentation](#delete--unset-oclc-numbers) for more information.
+```bash
+# Delete or unset the OCLC numbers in 'delete_me.lst' using OCLC's 
+# production database...
+python3 oclc.py --yaml=production.yaml --unset delete_me.lst
+ ...
+```
+
+### Reclamation
+See [this section on reclamation](#reclamations-instructions) for more information.
+```bash
+# Perform reclamation-like operation on OCLC's production database. 
+python3 oclc.py --yaml=production.yaml --remote oclc_reported_holdings.lst --local our_current_holdings.lst
+ ...
+```
+
 
 ## Installation
 
@@ -60,6 +117,39 @@ The result is sometimes titles didn't get unset, and customers would get upset t
 To fix the mismatch of library's holdings OCLC offers a **reclamation** service. At the library's request and a cost of a few thousands of dollars, OCLC will purge all the holdings for a library and the library submits a complete new set.
 
 To remediate this expense and improve customer service ```oclc3``` can run a reclamation process.
+
+## Notes on OCLC Number Lists
+The specification for a valid list of OCLC numbers is as follows.
+* An OCLC number is a string of 4 or more digits that together satisfy the definition of an integer, that is, no float values, no number with '(OCoLC)' prefixes etc.
+* A valid file contains one or more OCLC numbers, one per line.
+* A valid OCLC number is an integer of 4 or more digits and may start with a `+` or `-`.
+* Any number prefixed with `+`, like `+9974113 *` indicates the record should be added or set as a holding. If you are using `--unset` this number will be ignored.
+* Any line that starts with `-`, like `-2239776 *` means delete this record when the `--unset` switch is used, otherwise this line is ignored.
+* Any line that start with a space ` `, like ` 225716 *` will be ignored when using `--set` or `--unset`.
+* A `master.lst` file is written to the local directory which contains the instructions that were executed for each OCLC number of either `--set`, `--unset`, `--local`, or `--remote`.
+
+While this sounds complicated, there are some simple rules.
+1) If you use a file to **set** records only lines that start with `\d{4,}` or `+\d{4,}` will be added.
+2) If you `--unset` any line that starts with `\d{4,}` or `-\d{4,}` will be deleted. Any other lines will be ignored.
+3) The flags `--local` and `--remote` must be used together.
+4) You can use the same `master.lst` with both `--set` or `--unset` switches.
+
+## Example of a Number List
+```bash
++123456 Treasure Isl... # The record 123456 will be added when '--set' is used.
+123456 Treasure Isla... # Added when using '--set' and deleted if using `--unset`.
+-7756632                # Delete this record if '--unset' is used.
+7756632                 # Deleted if '--unset' is used, added if using '--set' or `--local`.
+ 654321 any text        # This will be ignored in all cases.
+(OCoLC)7756632  blah    # Ignored.
+Random text on a line   # Ignored.
+```
+
+## OCLC3 Reclamation
+
+1) On the ILS, select all the records that OCLC should be aware of. [A suggestion of Symphony API instructions can be found here.](#library-records). This will become the **local** list.
+2) Generate a report of all the records OCLC has for your institution. [See here for hints on how to generate a report of your holdings.](#oclc-records). This will become the **remote** list.
+3) Use the command `python3 oclc.py --local=local.lst --remote=remote.lst`. This will generate a master list of record instructions with [patch notation]().
 
 ## OCLC Records
 1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
