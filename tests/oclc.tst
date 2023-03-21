@@ -121,3 +121,10 @@ Check for both set and unset
     >>> print(f"{s}")
     ['1111']
 
+Check that if you don't have any check requests an empty list is returned.
+--------------------------------------------------------------------------
+    >>> check_list = ['-1234', '+1111', ' 2222', ' 3333']
+    >>> o.write_master(path='tests/test_master.lst', master_list=check_list, debug=False)
+    >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+    >>> print(f"{c}")
+    []
