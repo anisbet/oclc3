@@ -234,13 +234,13 @@ def main(argv):
         epilog='See "-h" for help more information.'
     )
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+    parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
+    parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
+    parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
     parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
-    parser.add_argument('-U', '--update', action='store_true', default=False, help='Will update the database with instructions found in the "master.lst".')
-    parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
-    parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
+    parser.add_argument('--update', action='store_true', default=False, help='Will update the database with instructions found in the "master.lst".')
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
-    parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
     
@@ -255,6 +255,7 @@ def main(argv):
         print(f"set: '{args.set}'")
         print(f"unset: '{args.unset}'")
         print(f"remote: '{args.remote}'")
+        print(f"update: '{args.update}'")
         print(f"xml records: '{args.xml_records}'")
         print(f"yaml: '{args.yaml}'")
 
