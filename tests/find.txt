@@ -41,3 +41,22 @@ Checking
     >>> o._find_check_(' 12345')
     >>> o._find_check_('12345 is the number you are looking for')
     '12345'
+
+Diff-ing two different Lists
+----------------------------
+
+    >>> u = []
+    >>> s = [2,3,4]
+    >>> M = o._diff_(u, s)
+    >>> print(M)
+    ['+2', '+3', '+4']
+    >>> u = [1,2,3]
+    >>> s = []
+    >>> M = o._diff_(u, s)
+    >>> print(M)
+    ['-1', '-2', '-3']
+    >>> r = [1,2,3]
+    >>> l = [2,3,4]
+    >>> M = o._diff_(r, l)
+    >>> print(M)
+    ['-1', ' 2', ' 3', '+4']

@@ -79,14 +79,8 @@ def _find_check_(line):
 # param: Debug bool, if you want debug information displayed. 
 # return: List of OCLC numbers to be set or unset.
 def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
-    """
-    >>> _read_num_file_('test/test.set', 'set', False)
-    ['12345', '6789']
-    >>> _read_num_file_('test/test.set', 'unset', False)
-    ['12345', '101112']
-    """
     nums = []
-    if args.debug:
+    if debug:
         print(f"Running {set_unset}")
     if not os.path.isfile(num_file):
         sys.stderr.write(f"*error, no such file: '{num_file}'.\n")
@@ -122,12 +116,32 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
 #   list will consist of integers prefixed with either '+', '-'
 #   '?', or ' '.
 # param: debug writes diagnostic info to stdout if True.
-def write_master(path:str='master.lst', oclc_num_list:list=[], debug:bool=True):
+def write_master(
+    path:str='master.lst', 
+    master_list:list=[],
+    add_list:list=[], 
+    del_list:list=[], 
+    check_list:list=[], 
+    debug:bool=True):
     with open(path, encoding='utf8', mode='w') as f:
-        for holding in oclc_num_list:
-            if debug:
-                print(f"{holding}")
-            f.write(f"{holding}\n")
+        if master_list:
+            for holding in master_list:
+                if debug:
+                    print(f"{holding}")
+                f.write(f"{holding}\n")
+        else:
+            for holding in add_list:
+                if debug:
+                    print(f"+{holding}")
+                f.write(f"+{holding}\n")
+            for holding in del_list:
+                if debug:
+                    print(f"-{holding}")
+                f.write(f"-{holding}\n")
+            for holding in check_list:
+                if debug:
+                    print(f"?{holding}")
+                f.write(f"?{holding}\n")
     f.close()
 
 # Reads the master list of instructions. The master list is created by a
@@ -140,9 +154,6 @@ def write_master(path:str='master.lst', oclc_num_list:list=[], debug:bool=True):
 # return:
 def read_master(
     path:str='master.lst', 
-    add_list:list=[], 
-    del_list:list=[], 
-    check_list:list=[], 
     debug:bool=True):
     if os.path.exists(path) and os.path.getsize(path) > 0:
         if debug:
@@ -150,9 +161,12 @@ def read_master(
         with open(path, encoding='utf-8', mode='r') as f:
             temp = f.readlines()
         f.close()
+        if debug:
+            print(f"read {len(temp)} lines from {path}")
         # Clear in case used from another switch.
-        add_list.clear()
-        del_list.clear()
+        add_list = []
+        del_list = []
+        check_list = []
         for number in temp:
             number = number.rstrip()
             if number.startswith('+'):
@@ -167,6 +181,7 @@ def read_master(
             print(f"first 5 add records: {add_list[:5]}")
             print(f"first 5 del records: {del_list[:5]}")
             print(f"first 5 chk records: {check_list[:5]}")
+    return add_list, del_list, check_list
 
 # Adds or sets the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -191,23 +206,6 @@ def read_master(
 # param:  List of oclc numbers to delete or unset.
 # param:  List of oclc numbers to set or add. 
 def _diff_(del_nums:list, add_nums:list) -> list:
-    """
-    >>> u = []
-    >>> s = [2,3,4]
-    >>> M = _diff_(u, s)
-    >>> print(M)
-    ['+2', '+3', '+4']
-    >>> u = [1,2,3]
-    >>> s = []
-    >>> M = _diff_(u, s)
-    >>> print(M)
-    ['-1', '-2', '-3']
-    >>> r = [1,2,3]
-    >>> l = [2,3,4]
-    >>> M = _diff_(r, l)
-    >>> print(M)
-    ['-1', ' 2', ' 3', '+4']
-    """
     # Store uniq nums and sign.
     ret_dict = {}
     for oclcnum in del_nums:
@@ -263,29 +261,15 @@ def main(argv):
     # Two lists, one for adding holdings and one for deleting holdings. 
     set_holdings   = []
     unset_holdings = []
+    check_holdings = []
     # Add records to institution's holdings.
     if args.set:
         set_holdings = _read_num_file_(args.set, 'set', args.debug)
-        # Write out the instructions and clean list. Acts like a receipt.
-        write_master(MASTER_LIST_PATH, oclc_num_list=set_holdings)
-        read_master(MASTER_LIST_PATH, set_holdings, debug=args.debug)
-        # report = 
-        # add_holdings(oclc_numbers=set_holdings)
-        if args.debug:
-            print(f"set holdings exiting.")
-        sys.exit()
+        
 
     # delete records from institutional holdings.
     if args.unset:
         unset_holdings = _read_num_file_(args.unset, 'unset', args.debug)
-        # Write out the instructions and clean list. Acts like a receipt.
-        write_master(MASTER_LIST_PATH, oclc_num_list=unset_holdings)
-        read_master(MASTER_LIST_PATH, unset_holdings, debug=args.debug)
-        # report = 
-        # del_holdings(oclc_numbers=unset_holdings)
-        if args.debug:
-            print(f"unset holdings exiting.")
-        sys.exit()
 
     # Upload XML MARC21 records.
     if args.xml_records:
@@ -305,19 +289,18 @@ def main(argv):
         # using the same file for both the '--set' and '--unset' flags to run
         # the master. Check the list first before beginning.
         master_list = _diff_(unset_holdings, set_holdings)
-        write_master(MASTER_LIST_PATH, oclc_num_list=master_list)
-        read_master(MASTER_LIST_PATH, set_holdings, unset_holdings, debug=args.debug)
+        write_master(MASTER_LIST_PATH, master_list=master_list)
+        read_master(MASTER_LIST_PATH, debug=args.debug)
     # Call the web service with the appropriate list, and capture results.
     if args.update:
-        read_master(MASTER_LIST_PATH, set_holdings, unset_holdings, args.debug)
-        if set_holdings:
-            pass
+        pass
 
 
 if __name__ == "__main__":
     if TEST:
         import doctest
         doctest.testfile("tests/find.txt")
+        doctest.testfile("tests/file.txt")
     else:
         main(sys.argv[1:])
 # EOF
