@@ -1,4 +1,67 @@
-est if the following strings parse integer OCLC numbers correctly when 
+    
+Test if the following strings parse integer OCLC numbers correctly when 
+desired operation is unset.
+    >>> import oclc as o
+
+Setting
+-------
+
+    >>> o._find_set_('12345.012 is the number you are looking for')
+    >>> o._find_set_('12345')
+    '12345'
+    >>> o._find_set_('-12345')
+    >>> o._find_set_('+12345')
+    '12345'
+    >>> o._find_set_(' 12345')
+    >>> o._find_set_('12345 is the number you are looking for')
+    '12345'
+
+Unsetting
+---------
+
+    >>> o._find_unset_('12345.012 is the number you are looking for')
+    >>> o._find_unset_('12345')
+    '12345'
+    >>> o._find_unset_('+12345')
+    >>> o._find_unset_('-12345')
+    '12345'
+    >>> o._find_unset_(' 12345')
+    >>> o._find_unset_('12345 is the number you are looking for')
+    '12345'
+
+Checking
+-------
+
+    >>> o._find_check_('12345.012 is the number you are looking for')
+    >>> o._find_check_('?12345')
+    '12345'
+    >>> o._find_check_('-12345')
+    >>> o._find_check_('?12345')
+    '12345'
+    >>> o._find_check_(' 12345')
+    >>> o._find_check_('12345 is the number you are looking for')
+    '12345'
+
+Diff-ing two different Lists
+----------------------------
+
+    >>> u = []
+    >>> s = [2,3,4]
+    >>> M = o._diff_(u, s)
+    >>> print(M)
+    ['+2', '+3', '+4']
+    >>> u = [1,2,3]
+    >>> s = []
+    >>> M = o._diff_(u, s)
+    >>> print(M)
+    ['-1', '-2', '-3']
+    >>> r = [1,2,3]
+    >>> l = [2,3,4]
+    >>> M = o._diff_(r, l)
+    >>> print(M)
+    ['-1', ' 2', ' 3', '+4']
+
+Test if the following strings parse integer OCLC numbers correctly when 
 desired operation is unset.
     >>> import oclc as o
 
@@ -57,6 +120,4 @@ Check for both set and unset
     ['1234']
     >>> print(f"{s}")
     ['1111']
-
-
 

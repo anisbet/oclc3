@@ -306,8 +306,7 @@ def main(argv):
 if __name__ == "__main__":
     if TEST:
         import doctest
-        doctest.testfile("tests/find.txt")
-        doctest.testfile("tests/file.txt")
+        doctest.testfile("tests/oclc.tst")
     else:
         main(sys.argv[1:])
 # EOF
