@@ -18,7 +18,7 @@ class Log:
         else:
             msg = f"[{time_str}] {message}"
         with open(self.log, encoding='utf-8', mode='a') as log:
-            log.write(f"{msg}")
+            log.write(f"{msg}\n")
         log.close()
         return msg
 
@@ -32,14 +32,12 @@ class Log:
         with open(self.log, encoding='utf-8', mode='a') as log:
             if level == 'error':
                 for message in messages:
-                    msg = f"[{time_str}] *error, {message}"
-                    log.write(f"{msg}")
-                    ret_list.append(f"{msg}")
+                    log.write(f"[{time_str}] *error, {message}\n")
+                    ret_list.append(f"[{time_str}] *error, {message}")
             else:
                 for message in messages:
-                    msg = f"[{time_str}] {message}"
-                    log.write(f"{msg}")
-                    ret_list.append(f"{msg}")
+                    log.write(f"[{time_str}] {message}\n")
+                    ret_list.append(f"[{time_str}] {message}")
         log.close()
         return ret_list
 

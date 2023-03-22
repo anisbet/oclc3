@@ -65,13 +65,6 @@ class OclcService:
     #   returned from the OCLC web service authorize request.
     # Return: True if the token expires_at time has passed and False otherwise.
     def _is_expired_(self, expires_at:str):
-        """
-        >>> oclc = OclcService('test.yaml')
-        >>> oclc._is_expired_("2023-01-31 20:59:39Z")
-        True
-        >>> oclc._is_expired_("2050-01-31 00:59:39Z")
-        False
-        """
         # token expiry time
         assert expires_at != None
         assert len(expires_at) == 20
@@ -94,18 +87,6 @@ class OclcService:
     #   parameters to the web service call. Default 50, the limit specified by
     #   OCLC for most calls that take batches of numbers.
     def _list_to_param_str_(self, numbers:list, max:int = 50):
-        """
-        >>> L1 = [1,2,3]
-        >>> ws = OclcService('test.yaml')
-        >>> ws._list_to_param_str_(L1)
-        '1,2,3'
-        >>> L1 = ['1','2','3']
-        >>> ws._list_to_param_str_(L1)
-        '1,2,3'
-        >>> L1 = ["1","2","3"]
-        >>> ws._list_to_param_str_(L1)
-        '1,2,3'
-        """
         param_list = []
         count = 0
         while len(numbers) > 0 and count < max:
@@ -469,4 +450,4 @@ class OclcService:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    doctest.testfile("../tests/oclcws.tst")

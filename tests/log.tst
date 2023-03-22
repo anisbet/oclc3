@@ -22,7 +22,7 @@ Test logit
     ...   print(False)
     True
     >>> expected = [f"[{datetime.now().strftime(DATE_FORMAT)}] Hello ", f"[{datetime.now().strftime(DATE_FORMAT)}] World!"]
-    >>> msgs = [f"Hello ", f"World!"]
+    >>> msgs = ["Hello ", "World!"]
     >>> result = log.logem(msgs)
     >>> for i in range(len(result)):
     ...     if result[i] == expected[i]:
