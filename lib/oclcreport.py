@@ -118,6 +118,11 @@ class OclcReport:
     def delete_response(self, code:int, json_data:dict, debug:bool=False):
         pass
 
+    # Returns the checks result tally dictionary. 
+    # return: dictionary of check tally results.
+    def get_check_results(self) ->dict:
+        return self.checks
+
     def __str__(self):
         pass
 

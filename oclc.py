@@ -25,6 +25,7 @@ import argparse
 import re
 from lib.oclcws import OclcService
 from lib.oclcreport import OclcReport
+from lib.log import Log
 
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
 MASTER_LIST_PATH = 'master.lst'
@@ -211,13 +212,15 @@ def _check_holdings_(oclc_numbers:list, config_yaml:str, debug:bool=False):
     # Create a web service object. 
     ws = OclcService(config_yaml, debug)
     report = OclcReport(config_yaml, debug)
+    log = Log() # TODO: get the path to the log from the yaml file.
     results = []
     while oclc_numbers:
         response = ws.set_holdings(oclc_numbers)
-    #     results = report.check_response(response, debug=debug)
+        results = report.check_response(response, debug=debug)
+        log.logem(results)
     #     # TODO: Move to the ws object: print(f"batched {batch_count} records...")
-    # r_dict = report.get_check_results()
-    # print(f"processed {r_dict['total']} total records with {r_dict['errors']} errors")
+    r_dict = report.get_check_results()
+    print(f"processed {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors")
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.

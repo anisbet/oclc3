@@ -94,3 +94,9 @@ Tests for web service responses, but also provides reporting.
 	['?12345 - success', '?67890 - updated to 6777790', '?999999999 - error Record not found.']
 
 
+Test the checks dictionary for tallies
+--------------------------------------
+
+	>>> report.get_check_results()
+	{'total': 3, 'success': 2, 'errors': 1}
+
