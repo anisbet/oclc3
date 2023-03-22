@@ -14,7 +14,7 @@ you can get info about keys [from this link](https://www.oclc.org/developer/api/
   * ` - success` if everything went as planned.
   * ` - error [reason]`, on error output the error.
   * ` - pending` if the web service hit count exceeded quota
-  * ` - old: [old], new: [new]` if the two numbers differ, and ` - success` if no change required.
+  * ` - updated [new]` if the two numbers differ, and ` - success` if no change required.
 
 ## Testing
 The application is controlled by a YAML file which contains the following values.
@@ -28,6 +28,7 @@ service:
   principalId:   'a_long_hash_string_identifier' # Provided but not used.
   principalIdns: 'urn:oclc:wms:da' # Provided but not used.
   institutionalSymbol: 'OCPSB' # Test institutional symbol supplied by OCLC.
+report: 'oclc.log'
 
 # Configurations for the database.
 database:

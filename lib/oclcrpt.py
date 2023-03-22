@@ -17,9 +17,48 @@
 # limitations under the License.
 #
 ###############################################################################
+
+###############################################################################
+#
+# NOTE: Not used, but could be part of future development.
+#
+###############################################################################
+
 import sqlite3
 import yaml
 from os.path import dirname, join, exists
+
+#########
+# Typical response:
+# Typical JSON response for two records.
+# {"entries": [
+#     {"title": "850939592", 
+#         "content": {
+#             "requestedOclcNumber": "850939592", 
+#             "currentOclcNumber": "850939592", 
+#             "institution": "OCPSB", "status": "HTTP 200 OK", "detail": "Record found.", 
+#             "id": "http://worldcat.org/oclc/850939592", 
+#             "found": true, 
+#             "merged": False
+#         }, 
+#         "updated": "2023-01-31T20:39:40.088Z"
+#     }]
+# }
+
+#########
+# Database Schema:
+# CREATE TABLE added (
+#     title TEXT,
+#     requestedOclcNumber TEXT,
+#     currentOclcNumber TEXT,
+#     institution TEXT,
+#     status TEXT,
+#     detail TEXT,
+#     id TEXT,
+#     found TEXT,
+#     merged TEXT,
+#     updated TEXT
+# );
 
 MAX_RECORDS_COMMIT = 10   # Number of records to insert before committing.
 # Creates reports parsing JSON output into sqlite3 database for easy analysis.
@@ -50,16 +89,6 @@ class OclcRpt:
     # param: table name string, setting found in yaml. 
     # param: columns list of string names of the columns.
     def _create_table_(self, table_name:str, columns:list):
-        """
-        >>> o = OclcRpt('test.yaml', True)
-        >>> cols = ['a','b','c']
-        >>> o._create_table_('test', cols)
-        create query: CREATE TABLE IF NOT EXISTS test (
-            a TEXT,
-            b TEXT,
-            c TEXT
-        )
-        """
         create_str = f"CREATE TABLE IF NOT EXISTS {table_name} (\n"
         for i in range(0, len(columns)):
             create_str += f"    {columns[i]} TEXT"
@@ -76,50 +105,12 @@ class OclcRpt:
         db.commit()
         db.close()
 
-    # Typical JSON response for two records.
-    # {"entries": [
-    #     {"title": "850939592", 
-    #         "content": {
-    #             "requestedOclcNumber": "850939592", 
-    #             "currentOclcNumber": "850939592", 
-    #             "institution": "OCPSB", "status": "HTTP 200 OK", "detail": "Record found.", 
-    #             "id": "http://worldcat.org/oclc/850939592", 
-    #             "found": true, 
-    #             "merged": False
-    #         }, 
-    #         "updated": "2023-01-31T20:39:40.088Z"
-    #     }, 
-    #     {"title": "850939596", 
-    #         "content": {
-    #             "requestedOclcNumber": "850939596", 
-    #             "currentOclcNumber": "850939596", 
-    #             "institution": "OCPSB", "status": "HTTP 200 OK", "detail": "Record found.", 
-    #             "id": "http://worldcat.org/oclc/850939596", 
-    #             "found": true, 
-    #             "merged": False
-    #         }, 
-    #         "updated": "2023-01-31T20:39:40.089Z"
-    #     }]
-    # }
-    def set_and_check_reponse(self, json_response:dict, action:str='set'):
-        """
-        >>> d={"entries":[{"title":"850939592","content":{"requestedOclcNumber":"850939592","currentOclcNumber":"850939592","institution":"OCPSB","status":"HTTP 200 OK","detail":"Record found.","id":"http://worldcat.org/oclc/850939592","found":True,"merged":False},"updated":"2023-01-31T20:39:40.088Z"},{"title":"850939596","content":{"requestedOclcNumber":"850939596","currentOclcNumber":"850939596","institution":"OCPSB","status":"HTTP 200 OK","detail":"Record found.","id":"http://worldcat.org/oclc/850939596","found":True,"merged":False},"updated":"2023-01-31T20:39:40.089Z"}]}
-        >>> o = OclcRpt('test.yaml', True)
-        >>> o.set_and_check_reponse(d)
-        create query: CREATE TABLE IF NOT EXISTS added (
-            title TEXT,
-            requestedOclcNumber TEXT,
-            currentOclcNumber TEXT,
-            institution TEXT,
-            status TEXT,
-            detail TEXT,
-            id TEXT,
-            found TEXT,
-            merged TEXT,
-            updated TEXT
-        )
-        loaded 2 records.
-        """
+    # Adds a check response to the database. 
+    # param: json object check response. 
+    # param: action taken on the OCLC database of either 'set', 'unset', or 'check'. 
+    # Default 'set'. 
+    # return: count integer of records inserted.
+    def set_and_check_reponse(self, json_response:dict, action:str='set') -> int:
         records = json_response
         # Expected, and useful columns from web service JSON output.
         columns = ['title', 'requestedOclcNumber', 'currentOclcNumber', 'institution', 'status', 'detail', 'id', 'found', 'merged', 'updated']
@@ -152,6 +143,7 @@ class OclcRpt:
         db.close()
         if self.debug:
             print(f"loaded {count} records.")
+        return count
 
     # Selects all OCLC numbers that are marked missing.
     def report_missing(self):
@@ -159,5 +151,4 @@ class OclcRpt:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
-    # EOF
+    doctest.testfile("../tests/oclcrpt.tst")
