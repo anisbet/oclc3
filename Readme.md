@@ -5,6 +5,17 @@
 ## Requesting Web Services Keys
 you can get info about keys [from this link](https://www.oclc.org/developer/api/keys.en.html) and [request keys here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost) after entering your institution's symbol.
 
+# Spec for Reporting
+* Report how long the script ran.
+* Report total hits and breakdown by operation.
+* Checks should report the original sent and value returned by OCLC and if an update is required. Updating this information could be in a report that could be made available to CMA for record updating, but automating is out of scope for now.
+* Adds and delete counts shall be reported along with any errors.
+* The master list (receipt) shall be updated with what happened with either of the following.
+  * ` - success` if everything went as planned.
+  * ` - error [reason]`, on error output the error.
+  * ` - pending` if the web service hit count exceeded quota
+  * ` - old: [old], new: [new]` if the two numbers differ, and ` - success` if no change required.
+
 ## Testing
 The application is controlled by a YAML file which contains the following values.
 ```yaml

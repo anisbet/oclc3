@@ -15,3 +15,5 @@ test_data/
 data/
 scripts/
 *.lst
+*.log
+tests/test_master.lst
