@@ -23,7 +23,7 @@ import requests
 import json
 from os.path import dirname, join, exists
 import sys
-from lib.log import Log
+from log import Log
 
 TOKEN_CACHE = '_auth_.json'
 
