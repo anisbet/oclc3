@@ -18,8 +18,8 @@
 # limitations under the License.
 #
 ###############################################################################
-import os
 import sys
+from os.path import join, dirname, exists, getsize
 import yaml
 import argparse
 import re
@@ -84,7 +84,7 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
     nums = []
     if debug:
         print(f"Running {set_unset}")
-    if not os.path.isfile(num_file):
+    if not exists(num_file):
         sys.stderr.write(f"*error, no such file: '{num_file}'.\n")
         return nums
 
@@ -157,7 +157,7 @@ def write_master(
 def read_master(
     path:str='master.lst', 
     debug:bool=True):
-    if os.path.exists(path) and os.path.getsize(path) > 0:
+    if exists(path) and getsize(path) > 0:
         if debug:
             print(f"checking {path} for OCLC numbers and processing instructions.")
         with open(path, encoding='utf-8', mode='r') as f:
@@ -189,36 +189,16 @@ def read_master(
 # param: oclc number list of holdings to set.
 # param: config_yaml string path to the YAML file, containing connection and authentication for 
 #   a given server.
-# return: TODO: TBD
-# def _update_holdings_(oclc_numbers:list, config_yaml:str, debug:bool=False):
-#     # Create a web service object. 
-#     ws = OclcService(config_yaml, debug)
-#     count = 0
-#     while oclc_numbers:
-#         start_length = len(oclc_numbers)
-#         # TODO: handle results via the oclc report.
-#         ws.set_holdings(oclc_numbers)
-#         batch_count = start_length - len(oclc_numbers)
-#         count += batch_count
-#         print(f"batched {batch_count} records...")
-#     print(f"processed {count} total records.")
-
-# Adds or sets the institutional holdings.
-# param: oclc number list of holdings to set.
-# param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server.
 # return: OclcReport object.
-def _check_holdings_(oclc_numbers:list, config_yaml:str, debug:bool=False):
+def _check_holdings_(oclc_numbers:list, config_yaml:str, logger:Log, debug:bool=False):
     # Create a web service object. 
-    ws = OclcService(config_yaml, debug)
+    ws = OclcService(config_yaml, logger=logger, debug=debug)
     report = OclcReport(config_yaml, debug)
-    log = Log() # TODO: get the path to the log from the yaml file.
     results = []
     while oclc_numbers:
-        response = ws.set_holdings(oclc_numbers)
+        response = ws.check_control_numbers(oclc_numbers)
         results = report.check_response(response, debug=debug)
-        log.logem(results)
-    #     # TODO: Move to the ws object: print(f"batched {batch_count} records...")
+        logger.logem(results)
     r_dict = report.get_check_results()
     print(f"processed {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors")
 
@@ -244,6 +224,22 @@ def _diff_(del_nums:list, add_nums:list) -> list:
         ret_list.append(f"{sign}{num}")
     return ret_list
 
+# Loads the yaml file for configs.
+# param: path of the yaml file. 
+# return: dictionary of settings, or an empty dict if there was an error.
+def _load_yaml_(yaml_path:str) -> dict:
+    yaml_file = join(dirname(__file__), yaml_path)
+    config = {}
+    if exists(yaml_file):
+        with open(yaml_file) as f:
+            try:
+                config = yaml.safe_load(f)
+            except yaml.YAMLError as exc:
+                config['error'] = f"{exc}"
+    else:
+        msg = f"*error, yaml file not found! Expected '{yaml_file}'"
+        config['error'] = msg
+    return config
 
 # Main entry to the application if not testing.
 def main(argv):
@@ -267,7 +263,13 @@ def main(argv):
     args = parser.parse_args()
     
     # Load configuration.
-    if args.yaml and os.path.isfile(args.yaml) == False:
+    if args.yaml and exists(args.yaml):
+        configs = _load_yaml_(args.yaml)
+        if 'error' in configs.keys():
+            sys.stderr.write(configs.get('error'))
+            sys.exit()
+        logger = Log(log_file=configs['report'])
+    else:
         sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
         sys.exit()
     

@@ -23,13 +23,15 @@ import requests
 import json
 from os.path import dirname, join, exists
 import yaml
+import sys
+from log import Log
 
 TOKEN_CACHE = '_auth_.json'
 
 class OclcService:
 
     # Reads the yaml file for necessary configs.
-    def __init__(self, yaml_path:str, debug:bool=False):
+    def __init__(self, yaml_path:str, logger:Log, debug:bool=False):
         yaml_file = join(dirname(__file__), '..', yaml_path)
         if exists(yaml_file):
             with open(yaml_file) as f:
@@ -39,6 +41,7 @@ class OclcService:
                     self.secret = self.configs['service']['secret']
                     self.inst_id = self.configs['service']['registryId']
                     self.inst_symbol = self.configs['service']['institutionalSymbol']
+                    self.logger = logger
                 except yaml.YAMLError as exc:
                     sys.stderr.write(f"{exc}")
         else:
@@ -64,7 +67,7 @@ class OclcService:
     # Param: Time in "%Y-%m-%d %H:%M:%SZ" format as it is stored in the authorization JSON
     #   returned from the OCLC web service authorize request.
     # Return: True if the token expires_at time has passed and False otherwise.
-    def _is_expired_(self, expires_at:str):
+    def _is_expired_(self, expires_at:str) -> bool:
         # token expiry time
         assert expires_at != None
         assert len(expires_at) == 20
@@ -86,7 +89,7 @@ class OclcService:
     # Param:  Optional integer of the max number of OCLC numbers allowed as URL
     #   parameters to the web service call. Default 50, the limit specified by
     #   OCLC for most calls that take batches of numbers.
-    def _list_to_param_str_(self, numbers:list, max:int = 50):
+    def _list_to_param_str_(self, numbers:list, max:int = 50) -> str:
         param_list = []
         count = 0
         while len(numbers) > 0 and count < max:
@@ -108,7 +111,7 @@ class OclcService:
         url = "https://oauth.oclc.org/token?grant_type=client_credentials&scope=WorldCatMetadataAPI"
         response = requests.post(url, headers=headers)
         if self.debug == True:
-            print(f"{response.json()}")
+            self.logger.logit(f"{response.json()}")
         self.auth_json = response.json()
         # {
         # 'access_token': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
@@ -123,10 +126,9 @@ class OclcService:
         # }
 
     # Tests and refreshes authentication token.
-    def _get_access_token_(self):
+    def _get_access_token_(self) -> str:
         expiry_deadline = '1900-01-01 00:00:00Z'
-        if os.path.isfile(TOKEN_CACHE):
-            print(f"attempting to use cached auth.")
+        if exists(TOKEN_CACHE):
             with open(TOKEN_CACHE, 'r') as f:
                 self.auth_json = json.load(f)
             f.close()
@@ -135,18 +137,18 @@ class OclcService:
             if self._is_expired_(expiry_deadline) == True:
                 self._authenticate_worldcat_metadata_()
                 if self.debug == True:
-                    print(f"refreshed auth token, expiry: {expiry_deadline}")
+                    self.logger.logit(f"refreshed auth token, expiry: {expiry_deadline}")
             else:
                 if self.debug == True:
-                    print(f"auth token is valid until {expiry_deadline}") 
+                    self.logger.logit(f"auth token is valid until {expiry_deadline}") 
         except KeyError:
             self._authenticate_worldcat_metadata_()
             if self.debug == True:
-                print(f"getting new auth token, expiry: {expiry_deadline}")
+                self.logger.logit(f"getting new auth token, expiry: {expiry_deadline}")
         except TypeError:
             self._authenticate_worldcat_metadata_()
             if self.debug == True:
-                print(f"getting new auth token, expiry: {expiry_deadline}")
+                self.logger.logit(f"getting new auth token, expiry: {expiry_deadline}")
         # Cache the results for repeated testing.
         with open(TOKEN_CACHE, 'w', encoding='utf-8') as f:
             # Use json.dump for streams files, or sockets and dumps for formatted strings.
@@ -156,8 +158,8 @@ class OclcService:
     # Takes a list of OCLC numbers as integers, and removes the max allowed count for 
     # verification at OCLC. The remainder of the list and the JSON response is returned.
     # Param:  List of OCLC numbers (as integers) to verify.
-    # Return: List of two elements L[0]=List of remaining OCLC numbers, L[1]=response JSON.
-    def check_control_numbers(self, oclcNumbers:list) -> list:
+    # Return: response JSON.
+    def check_control_numbers(self, oclcNumbers:list) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -169,8 +171,8 @@ class OclcService:
         # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         param_str = self._list_to_param_str_(oclcNumbers)
         url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
-        response = requests.post(url=url, headers=headers)
-        # print(f"response: '{response.json()}'")
+        response = requests.get(url=url, headers=headers)
+        # self.logger.logit(f"response: '{response.json()}'")
         # {'entries': [
         #   {'title': '850939592', 
         #     'content': {
@@ -206,7 +208,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_bib_record(self, recordXml:str):
+    def create_bib_record(self, recordXml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -251,7 +253,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_local_bib_record(self, recordXml:str):
+    def create_local_bib_record(self, recordXml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -293,7 +295,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def update_bib_record(self, recordXml:str):
+    def update_bib_record(self, recordXml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -350,7 +352,8 @@ class OclcService:
 
     # Create / set institutional holdings. Used to let OCLC know a library has a title. 
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
-    # and the remaining returned.
+    #   and the remaining returned.
+    # return: json dict response object.
     # The successful request is returned:
     # {
     # "entries": [
@@ -403,7 +406,7 @@ class OclcService:
     #     ...
     # ]
     # }
-    def set_holdings(self, oclcNumbers:list) -> list:
+    def set_holdings(self, oclcNumbers:list) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -428,9 +431,9 @@ class OclcService:
     #  Whether or not to execute the operation if a local holdings record, or local biblliographic record
     #  exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
     #  1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
-    # return: list of remaining oclc numbers. 
+    # return: json response object. 
     # The response from the web service is an empty dictionary.
-    def unset_holdings(self, oclcNumbers:list, cascade:int = 1) -> list:
+    def unset_holdings(self, oclcNumbers:list, cascade:int = 1) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",

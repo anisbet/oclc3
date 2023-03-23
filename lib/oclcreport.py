@@ -22,6 +22,7 @@ from os.path import dirname, join, exists
 import yaml
 from datetime import datetime
 import re
+from lib.log import Log
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -58,21 +59,7 @@ class OclcReport:
         self.checks = {'total': 0, 'success': 0, 'errors': 0}
         self.adds = {'total': 0, 'success': 0, 'errors': 0}
         self.dels = {'total': 0, 'success': 0, 'errors': 0}
-
-    # Logs entries with timestamps.
-    # param: message str to write to log. 
-    # param: level string values can be 'error', 'info'. Default 'info'.
-    # return: the time-stamped, formatted error message as was written to the log.
-    def logit(self, message:str, level:str='info') -> str:
-        time_str = datetime.now().strftime(DATE_FORMAT)
-        if level == 'error':
-            msg = f"[{time_str}] *error, {message}"
-        else:
-            msg = f"[{time_str}] {message}"
-        with open(self.report_file, encoding='utf-8', mode='a') as log:
-            log.write(f"{msg}")
-        log.close()
-        return msg
+        self.logger = Log(self.report_file)
 
     # Interprets the JSON response from the 
     # worldcat.org/bib/checkcontrolnumbers request. 
@@ -86,8 +73,10 @@ class OclcReport:
     def check_response(self, json_data:dict, debug:bool=False) -> list:
         results = []
         if json_data:
-            entries = json_data['entries']
+            if debug:
+                print(f"DEBUG: got JSON ===>{json_data}")
             try:
+                entries = json_data['entries']
                 for entry in entries:
                     title   = entry['title']
                     old_num = entry['content']['requestedOclcNumber']
@@ -108,8 +97,13 @@ class OclcReport:
                     results.append(return_str)
                     self.checks['total'] += 1
             except KeyError as ex:
-                msg = f"check response failed while parsing {ex} attribute"
-                results.append(self.logit(msg, 'error'))
+                try:
+                    reported_error = f"OCLC said: {json_data['message']}"
+                except KeyError as fx:
+                    reported_error = f"JSON: {json_data}"
+                msg = f"check response failed while parsing {ex} attribute.\n{reported_error}\n"
+                self.logger.logit(msg, 'error')
+                results.append(msg)
         return results
 
     def add_response(self, code:int, json_data:dict, debug:bool=False):

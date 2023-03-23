@@ -1,10 +1,15 @@
     
-Test if the following strings parse integer OCLC numbers correctly when 
-desired operation is unset.
+Test oclc script's functionality.
+
+
     >>> import oclc as o
+    >>> from lib.log import Log
+    >>> configs = o._load_yaml_('test.yaml')
+    >>> logger = Log(configs['report'])
 
 Setting
 -------
+
 
     >>> o._find_set_('12345.012 is the number you are looking for')
     >>> o._find_set_('12345')
@@ -16,8 +21,10 @@ Setting
     >>> o._find_set_('12345 is the number you are looking for')
     '12345'
 
+
 Unsetting
 ---------
+
 
     >>> o._find_unset_('12345.012 is the number you are looking for')
     >>> o._find_unset_('12345')
@@ -29,8 +36,10 @@ Unsetting
     >>> o._find_unset_('12345 is the number you are looking for')
     '12345'
 
+
 Checking
 -------
+
 
     >>> o._find_check_('12345.012 is the number you are looking for')
     >>> o._find_check_('?12345')
@@ -42,8 +51,10 @@ Checking
     >>> o._find_check_('12345 is the number you are looking for')
     '12345'
 
+
 Diff-ing two different Lists
 ----------------------------
+
 
     >>> u = []
     >>> s = [2,3,4]
@@ -63,11 +74,16 @@ Diff-ing two different Lists
 
 Test if the following strings parse integer OCLC numbers correctly when 
 desired operation is unset.
+
     >>> import oclc as o
+
 
 Reading a oclc number list file.
 -------
+
+
 Given file 't.set' contains the following values:
+
 12345
 +6789
  99999
@@ -82,8 +98,10 @@ Given file 't.set' contains the following values:
     >>> o._read_num_file_('tests/t.set', 'check', False)
     ['12345', '999877']
 
+
 Check the writing and reading of the 'master.lst'
 -----------
+
 
     >>> unset_holdings = o._read_num_file_('tests/t.set', 'unset', False)
     >>> o.write_master(path='tests/test_master.lst', del_list=unset_holdings, debug=False)
@@ -101,8 +119,12 @@ Check the writing and reading of the 'master.lst'
     >>> print(c)
     ['12345', '999877']
 
+
+
 Check for both set and unset
 ----------------------------
+
+
     >>> o.write_master(path='tests/test_master.lst', add_list=set_holdings, del_list=unset_holdings, check_list=check_holdings, debug=False)
     >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
     >>> print(f"{c}")
@@ -121,10 +143,43 @@ Check for both set and unset
     >>> print(f"{s}")
     ['1111']
 
+
+
 Check that if you don't have any check requests an empty list is returned.
 --------------------------------------------------------------------------
+
+
     >>> check_list = ['-1234', '+1111', ' 2222', ' 3333']
     >>> o.write_master(path='tests/test_master.lst', master_list=check_list, debug=False)
     >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
     >>> print(f"{c}")
     []
+
+
+Send test OCLC numbers via the web service
+------------------------------------------
+
+    >>> test_check_records = [
+    ... 850939592,
+    ... 850939596,
+    ... 850939598,
+    ... 850939600,
+    ... 850939601,
+    ... 850939602,
+    ... 850940343,
+    ... 850940351,
+    ... 850940364,
+    ... 850940368, ]
+    >>> o._check_holdings_(test_check_records, 'test.yaml', logger, False)
+    [2023-03-22 18:04:50] ?850939592 - success
+    [2023-03-22 18:04:50] ?850939596 - success
+    [2023-03-22 18:04:50] ?850939598 - success
+    [2023-03-22 18:04:50] ?850939600 - success
+    [2023-03-22 18:04:50] ?850939601 - success
+    [2023-03-22 18:04:50] ?850939602 - success
+    [2023-03-22 18:04:50] ?850940343 - success
+    [2023-03-22 18:04:50] ?850940351 - success
+    [2023-03-22 18:04:50] ?850940364 - success
+    [2023-03-22 18:04:50] ?850940368 - success
+    processed 10 total records; 10 successful, and 0 errors
+
