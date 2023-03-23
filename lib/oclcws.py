@@ -23,7 +23,7 @@ import requests
 import json
 from os.path import dirname, join, exists
 import sys
-from log import Log
+from lib.log import Log
 
 TOKEN_CACHE = '_auth_.json'
 
@@ -150,7 +150,7 @@ class OclcService:
     # verification at OCLC. The remainder of the list and the JSON response is returned.
     # Param:  List of OCLC numbers (as integers) to verify.
     # Return: response JSON.
-    def check_control_numbers(self, oclcNumbers:list) -> dict:
+    def check_control_numbers(self, oclc_numbers:list) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -160,7 +160,7 @@ class OclcService:
         # 'https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers=123456,7890122,4455677' \
         # -H 'accept: application/atom+json' \
         # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-        param_str = self._list_to_param_str_(oclcNumbers)
+        param_str = self._list_to_param_str_(oclc_numbers)
         url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
         response = requests.get(url=url, headers=headers)
         # self.logger.logit(f"response: '{response.json()}'")
@@ -199,7 +199,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_bib_record(self, recordXml:str) -> str:
+    def create_bib_record(self, record_xml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -207,7 +207,7 @@ class OclcService:
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
         url = f"https://worldcat.org/bib/data?inst={self.inst_id}&instSymbol={self.inst_symbol}"
-        response = requests.post(url=url, data=recordXml, headers=headers)
+        response = requests.post(url=url, data=record_xml, headers=headers)
         # curl -X 'POST' \
         # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
@@ -244,7 +244,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_local_bib_record(self, recordXml:str) -> str:
+    def create_local_bib_record(self, record_xml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -252,7 +252,7 @@ class OclcService:
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
         url = f"https://worldcat.org/lbd/data?inst={self.inst_id}&instSymbol={self.inst_symbol}&holdingLibraryCode=MAIN"
-        response = requests.post(url=url, data=recordXml, headers=headers)
+        response = requests.post(url=url, data=record_xml, headers=headers)
         # curl -X 'POST' \
         # 'https://worldcat.org/lbd/data?inst=128807&instSymbol=OCPSB&holdingLibraryCode=MAIN' \
         # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
@@ -286,7 +286,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def update_bib_record(self, recordXml:str) -> str:
+    def update_bib_record(self, record_xml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -294,7 +294,7 @@ class OclcService:
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
         url = f"https://worldcat.org/bib/data?inst={self.inst_id}&instSymbol={self.inst_symbol}"
-        response = requests.put(url=url, data=recordXml, headers=headers)
+        response = requests.put(url=url, data=record_xml, headers=headers)
         # curl -X 'PUT' \
         # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
@@ -397,14 +397,15 @@ class OclcService:
     #     ...
     # ]
     # }
-    def set_holdings(self, oclcNumbers:list) -> dict:
+    def set_holdings(self, oclc_numbers:list) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
             "Authorization": f"Bearer {access_token}"
         }
-        param_str = self._list_to_param_str_(oclcNumbers)
-        url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}={self.inst_id}&instSymbol={self.inst_symbol}"
+        param_str = self._list_to_param_str_(oclc_numbers)
+        url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}&inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        # print(f"DEBUG:===> url is {url} is that what you expected?")
         response = requests.post(url=url, headers=headers)
         # curl -X 'POST' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB' \
@@ -413,7 +414,7 @@ class OclcService:
         # -d ''
         # https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB
         # The response is usually empty, with an HTTP code of 201
-        return response.json()
+        return response.status_code, response.json()
 
     # Unset / delete institutional holdings. Used to let OCLC know we don't have a title anymore.
     # param: oclcNumbers - list of oclc integers, as strings. The method will send the max allowable,
@@ -424,13 +425,13 @@ class OclcService:
     #  1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
     # return: json response object. 
     # The response from the web service is an empty dictionary.
-    def unset_holdings(self, oclcNumbers:list, cascade:int = 1) -> dict:
+    def unset_holdings(self, oclc_numbers:list, cascade:int = 1) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
             "Authorization": f"Bearer {access_token}"
         }
-        param_str = self._list_to_param_str_(oclcNumbers)
+        param_str = self._list_to_param_str_(oclc_numbers)
         url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}&cascade={cascade}&inst={self.inst_id}&instSymbol={self.inst_symbol}"
         response = requests.delete(url=url, headers=headers)
         # curl -X 'DELETE' \
@@ -444,4 +445,4 @@ class OclcService:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testfile("../tests/oclcws.tst")
+    doctest.testfile("oclcws.tst")

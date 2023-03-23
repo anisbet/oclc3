@@ -21,7 +21,7 @@ import json
 from os.path import dirname, join, exists
 from datetime import datetime
 import re
-from log import Log
+from lib.log import Log
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -90,8 +90,99 @@ class OclcReport:
                 results.append(msg)
         return results
 
-    def set_add_response(self, code:int, json_data:dict, debug:bool=False):
-        pass
+    def set_response(self, code:int, json_data:dict, debug:bool=False):
+        results = []
+        if json_data:
+            if debug:
+                print(f"DEBUG: got JSON ===>{json_data}")
+                # Invalid query. The request was unacceptable, often due to missing a required parameter.
+        # TODO: Handle results as below:
+        # Errors
+        # ------
+        # {
+        # "code": {
+        #     "value": "400",
+        #     "type": "http"
+        # },
+        # "message": "Required parameter oclcNumbers missing from request.",
+        # "detail": null
+        # }
+        #
+        # Success
+        # -------
+        # {
+        #   "entries": [
+        #     {
+        #       "title": "44321120",
+        #       "content": {
+        #         "requestedOclcNumber": "44321120",
+        #         "currentOclcNumber": "37264396",
+        #         "institution": "OCWMS",
+        #         "status": "HTTP 403 Forbidden",
+        #         "detail": "Unauthorized 040 $c symbol for pilot modification.",
+        #         "id": "http://worldcat.org/oclc/37264396"
+        #       },
+        #       "updated": "2015-04-02T14:52:00.852Z"
+        #     },
+        #     {
+        #       "title": "896872613",
+        #       "content": {
+        #         "requestedOclcNumber": "896872613",
+        #         "currentOclcNumber": "896872613",
+        #         "institution": "OCWMS",
+        #         "status": "HTTP 200 OK",
+        #         "id": "http://worldcat.org/oclc/896872613"
+        #       },
+        #       "updated": "2015-04-02T14:52:00.880Z"
+        #     },
+        #     {
+        #       "title": "99999999999",
+        #       "content": {
+        #         "requestedOclcNumber": "99999999999",
+        #         "currentOclcNumber": "99999999999",
+        #         "institution": "OCWMS",
+        #         "status": "HTTP 404 Not Found",
+        #         "detail": "Record not found for holdings operation",
+        #         "id": "http://worldcat.org/oclc/99999999999"
+        #       },
+        #       "updated": "2015-04-02T14:52:00.881Z"
+        #     }
+        #   ],
+        #   "extensions": [
+        #     {
+        #       "name": "os:totalResults",
+        #       "attributes": {
+        #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+        #       },
+        #       "children": [
+        #         "3"
+        #       ]
+        #     },
+        #     {
+        #       "name": "os:startIndex",
+        #       "attributes": {
+        #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+        #       },
+        #       "children": [
+        #         "1"
+        #       ]
+        #     },
+        #     {
+        #       "name": "os:itemsPerPage",
+        #       "attributes": {
+        #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
+        #       },
+        #       "children": [
+        #         "3"
+        #       ]
+        #     }
+        #   ]
+        # }        
+        self.adds['total'] = 99
+        self.adds['success'] = 99
+        self.adds['errors'] = 99
+        self.logger.logit(f"===> status code returned: {code}")
+        return results
 
     def delete_response(self, code:int, json_data:dict, debug:bool=False):
         pass
@@ -101,9 +192,14 @@ class OclcReport:
     def get_check_results(self) ->dict:
         return self.checks
 
+    # Returns the set result tally dictionary. 
+    # return: dictionary of set tally results.
+    def get_set_results(self) ->dict:
+        return self.adds
+
     def __str__(self):
         pass
 
 if __name__ == "__main__":
     import doctest
-    doctest.testfile("../tests/oclcreport.tst")
+    doctest.testfile("oclcreport.tst")

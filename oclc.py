@@ -198,10 +198,10 @@ def _set_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False
     report = OclcReport(logger=logger, debug=debug)
     results = []
     while oclc_numbers:
-        response = ws.check_control_numbers(oclc_numbers)
-        results = report.check_response(response, debug=debug)
+        status_code, json_response = ws.set_holdings(oclc_numbers)
+        results = report.set_response(code=status_code, json_data=json_response, debug=debug)
         logger.logem(results)
-    r_dict = report.set_add_response()
+    r_dict = report.get_set_results()
     logger.logit(f"operation 'set' {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
@@ -351,7 +351,7 @@ def main(argv):
 if __name__ == "__main__":
     if TEST:
         import doctest
-        doctest.testfile("tests/oclc.tst")
+        doctest.testfile("oclc.tst")
     else:
         main(sys.argv[1:])
 # EOF

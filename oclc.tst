@@ -183,3 +183,10 @@ Send test OCLC numbers via the web service
     ?850940368 - success
     operation 'check' 10 total records; 10 successful, and 0 errors
 
+    >>> test_add_records = [
+    ... 850939592,
+    ... 850939596,]
+    >>> o._set_holdings_(test_add_records, configs, logger, False)
+    +850939592 - success
+    +850939596 - success
+    

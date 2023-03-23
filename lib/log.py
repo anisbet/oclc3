@@ -50,4 +50,4 @@ class Log:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testfile("../tests/log.tst")
+    doctest.testfile("log.tst")
