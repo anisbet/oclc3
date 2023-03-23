@@ -22,32 +22,23 @@ import base64
 import requests
 import json
 from os.path import dirname, join, exists
-import yaml
 import sys
-from log import Log
+from lib.log import Log
 
 TOKEN_CACHE = '_auth_.json'
 
 class OclcService:
 
     # Reads the yaml file for necessary configs.
-    def __init__(self, yaml_path:str, logger:Log, debug:bool=False):
-        yaml_file = join(dirname(__file__), '..', yaml_path)
-        if exists(yaml_file):
-            with open(yaml_file) as f:
-                try:
-                    self.configs = yaml.safe_load(f)
-                    self.client_id = self.configs['service']['clientId']
-                    self.secret = self.configs['service']['secret']
-                    self.inst_id = self.configs['service']['registryId']
-                    self.inst_symbol = self.configs['service']['institutionalSymbol']
-                    self.logger = logger
-                except yaml.YAMLError as exc:
-                    sys.stderr.write(f"{exc}")
-        else:
-            sys.stderr.write(f"*error, yaml file not found! Expected '{yaml_file}'")
-            sys.exit()
-        self.debug = debug
+    def __init__(self, configs:dict, logger:Log, debug:bool=False):
+        
+        self.configs     = configs
+        self.client_id   = configs['service']['clientId']
+        self.secret      = configs['service']['secret']
+        self.inst_id     = configs['service']['registryId']
+        self.inst_symbol = configs['service']['institutionalSymbol']
+        self.logger      = logger
+        self.debug       = debug
         if len(self.client_id) > 0 and len(self.secret) > 0:
             self.auth_json = self._authenticate_worldcat_metadata_()
         # If successful the self.auth_json object will contain the following.

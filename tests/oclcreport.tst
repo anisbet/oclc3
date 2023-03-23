@@ -13,6 +13,8 @@ Tests for web service responses, but also provides reporting.
 
 	>>> from oclcreport import OclcReport
 	>>> import json
+	>>> from log import Log
+    >>> logger = Log('test.log')
 
 	>>> DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -89,9 +91,10 @@ Tests for web service responses, but also provides reporting.
 	...   }
 	... ]
 	... }""")
-	>>> report = OclcReport('test.yaml')
+	>>> report = OclcReport(logger=logger)
 	>>> report.check_response(check_response)
 	['?12345 - success', '?67890 - updated to 6777790', '?999999999 - error Record not found.']
+	
 
 
 Test the checks dictionary for tallies

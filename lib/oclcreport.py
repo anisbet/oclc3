@@ -19,7 +19,6 @@
 ###############################################################################
 import json
 from os.path import dirname, join, exists
-import yaml
 from datetime import datetime
 import re
 from lib.log import Log
@@ -39,27 +38,12 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 #   * ` - old: [old], new: [new]` if the two numbers differ, and ` - success` if no change required.
 class OclcReport:
 
-    def __init__(self, yaml_path:str='test.yaml', debug:bool=False):
-        # Since this file is in the lib/ below the caller.
-        yaml_file = join(dirname(__file__), '..', yaml_path)
-        if exists(yaml_file):
-            with open(yaml_file) as f:
-                try:
-                    self.configs = yaml.safe_load(f)
-                    self.report_file = self.configs['report']
-                except yaml.YAMLError as exc:
-                    sys.stderr.write(f"{exc}")
-            f.close()
-            if debug:
-                print(f"yaml loaded.")
-        else:
-            sys.stderr.write(f"*error, yaml file not found! Expected '{yaml_file}'")
-            sys.exit()
+    def __init__(self, logger:Log, debug:bool=False):
         self.debug = debug
         self.checks = {'total': 0, 'success': 0, 'errors': 0}
         self.adds = {'total': 0, 'success': 0, 'errors': 0}
         self.dels = {'total': 0, 'success': 0, 'errors': 0}
-        self.logger = Log(self.report_file)
+        self.logger = logger
 
     # Interprets the JSON response from the 
     # worldcat.org/bib/checkcontrolnumbers request. 
@@ -106,7 +90,7 @@ class OclcReport:
                 results.append(msg)
         return results
 
-    def add_response(self, code:int, json_data:dict, debug:bool=False):
+    def set_add_response(self, code:int, json_data:dict, debug:bool=False):
         pass
 
     def delete_response(self, code:int, json_data:dict, debug:bool=False):

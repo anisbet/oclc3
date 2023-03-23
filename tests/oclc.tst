@@ -170,16 +170,16 @@ Send test OCLC numbers via the web service
     ... 850940351,
     ... 850940364,
     ... 850940368, ]
-    >>> o._check_holdings_(test_check_records, 'test.yaml', logger, False)
-    [2023-03-22 18:04:50] ?850939592 - success
-    [2023-03-22 18:04:50] ?850939596 - success
-    [2023-03-22 18:04:50] ?850939598 - success
-    [2023-03-22 18:04:50] ?850939600 - success
-    [2023-03-22 18:04:50] ?850939601 - success
-    [2023-03-22 18:04:50] ?850939602 - success
-    [2023-03-22 18:04:50] ?850940343 - success
-    [2023-03-22 18:04:50] ?850940351 - success
-    [2023-03-22 18:04:50] ?850940364 - success
-    [2023-03-22 18:04:50] ?850940368 - success
-    processed 10 total records; 10 successful, and 0 errors
+    >>> o._check_holdings_(test_check_records, configs, logger, False)
+    ?850939592 - success
+    ?850939596 - success
+    ?850939598 - success
+    ?850939600 - success
+    ?850939601 - success
+    ?850939602 - success
+    ?850940343 - success
+    ?850940351 - success
+    ?850940364 - success
+    ?850940368 - success
+    operation 'check' 10 total records; 10 successful, and 0 errors
 

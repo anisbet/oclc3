@@ -188,19 +188,40 @@ def read_master(
 # Adds or sets the institutional holdings.
 # param: oclc number list of holdings to set.
 # param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server.
-# return: OclcReport object.
-def _check_holdings_(oclc_numbers:list, config_yaml:str, logger:Log, debug:bool=False):
+#   a given server. 
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def _set_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False):
     # Create a web service object. 
-    ws = OclcService(config_yaml, logger=logger, debug=debug)
-    report = OclcReport(config_yaml, debug)
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    results = []
+    while oclc_numbers:
+        response = ws.check_control_numbers(oclc_numbers)
+        results = report.check_response(response, debug=debug)
+        logger.logem(results)
+    r_dict = report.set_add_response()
+    logger.logit(f"operation 'set' {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
+
+# Checks list of OCLC control numbers as part of the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server.
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def _check_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False):
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
     results = []
     while oclc_numbers:
         response = ws.check_control_numbers(oclc_numbers)
         results = report.check_response(response, debug=debug)
         logger.logem(results)
     r_dict = report.get_check_results()
-    print(f"processed {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors")
+    logger.logit(f"operation 'check' {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.
