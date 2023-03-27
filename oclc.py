@@ -198,11 +198,11 @@ def _set_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False
     report = OclcReport(logger=logger, debug=debug)
     results = []
     while oclc_numbers:
-        status_code, json_response = ws.set_holdings(oclc_numbers)
-        results = report.set_response(code=status_code, json_data=json_response, debug=debug)
+        number_str, status_code, json_response = ws.set_holdings(oclc_numbers)
+        results = report.set_response(code=status_code, json_data=json_response, oclc_nums_sent=number_str, debug=debug)
         logger.logem(results)
     r_dict = report.get_set_results()
-    logger.logit(f"operation 'set' {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
+    logger.logit(f"operation 'set' total records: {r_dict['total']}, {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -221,7 +221,7 @@ def _check_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=Fal
         results = report.check_response(response, debug=debug)
         logger.logem(results)
     r_dict = report.get_check_results()
-    logger.logit(f"operation 'check' {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
+    logger.logit(f"operation 'check' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.

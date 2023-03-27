@@ -94,16 +94,20 @@ python3 oclc.py --yaml=production.yaml --remote oclc_reported_holdings.lst --loc
 
 ## Installation
 
-* Clone the project [GitHub](https://github.com/anisbet) a clean folder.
-* Make sure python 3.7 (minimum) is installed.
-* Create a YAML of you site's [OCLC settngs](#required-oclc-settings).
-* TODO: are there libs to intall? If so create a requirements doc.
-* Run as follows.
-* After testing schedule.
+* Clone the project from [GitHub](https://github.com/anisbet/oclc3) a clean folder.
+* Get API keys from [here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost).
+* Create a YAML file of you site's [OCLC settngs](#required-oclc-settings).
+* Make sure python 3.7 (minimum) is installed and install libraries in a virtual environment (`venv`).
+  * Create a virtual environment (`venv`) with `python3 -m venv oclcvenv`
+  * Use the `venv` with `. oclcvenv/bin/activate`
+  * Update `pip` with `pip install --upgrade pip`
+  * Install wheel with `pip install wheel`
+  * Install helper libraries. To date: `pip install pyyaml requests`. There may be others listed in the `requirements.txt` file, but requests and pyyaml install dependancies with those and run the next step. Any errors will alert you to any other missing libraries. 
+  * Test by setting the `TEST` variable in `oclc.py` to `True` and running `python oclc.py`
+  * Set `TEST` to `False`
+* Run as described in either the [maintenance](#regular-worldcat-maintenance) or [reclamation](#reclamations-instructions) sections.
+* Schedule and test.
 
-```bash
-python oclc.py
-```
 ## Required OCLC Settings
 This is a comprehensive list of all the settings you will need to manage local holdings. Please contact [OCLC Developer Network APIs](https://www.oclc.org/developer/develop/web-services.en.html) for more information.
 

@@ -181,12 +181,52 @@ Send test OCLC numbers via the web service
     ?850940351 - success
     ?850940364 - success
     ?850940368 - success
-    operation 'check' 10 total records; 10 successful, and 0 errors
+    operation 'check' total records: 10, 10 successful, 0 warnings, and 0 errors
 
     >>> test_add_records = [
     ... 850939592,
     ... 850939596,]
     >>> o._set_holdings_(test_add_records, configs, logger, False)
-    +850939592 - success
     +850939596 - success
-    
+    +850939592 - success
+    operation 'set' total records: 2, 2 successful, and 0 errors
+
+
+Test that MARC21 XML records can be loaded
+------------------------------------------
+
+>>> test_record_flat = """*** DOCUMENT BOUNDARY ***
+... ... FORM=MARC
+... .000. |aam a0n a
+... .001. |aepl01318816
+... .005. |a20140415031118.0
+... .008. |a120510t20122011maua   j      000 1 eng c
+... .010.   |a  2011277368
+... .035.   |a(Sirsi) a1002054
+... .035.   |a(Sirsi) a1002054
+... .035.   |a(OCoLC)745979831
+... .035.   |a(ULS) epl01318816
+... .040.   |dUtOrBLW
+... .082. 04|a[E]|223
+... .099.   |aE DUD
+... .100. 1 |aDuddle, Jonny.
+... .245. 14|aThe pirates next door :|bstarring the Jolley-Rogers /|cJonny Duddle.
+... .250.   |aFirst U.S. edition.
+... .264.  1|aSomerville, Mass. :|bTemplar Books,|c2012.
+... .264.  4|c©2011
+... .300.   |a36 unnumbered pages :|bchiefly color illustrations ;|c26 x 30 cm
+... .336.   |atext|2rdacontent
+... .336.   |astill image|2rdacontent
+... .337.   |aunmediated|2rdamedia
+... .338.   |avolume|2rdacarrier
+... .520.   |aWhen a pirate family moves into her quiet seaside town during ship
+... repairs, young Matilda defies the edicts of the gossiping adults in the
+... community to befriend young pirate Jim Lad.
+... .596.   |a1 4 7 10 13 16 20 22
+... .650.  0|aPirates|vJuvenile fiction.
+... .650.  0|aFriendship|vJuvenile fiction.
+... .650.  0|aNeighbors|vJuvenile fiction.
+... .020.   |a0763658421
+... .020.   |a9780763658427
+... .947.   |fE-PR|hEPLZJBK|q9|p19.19
+... .999.   |hEPLZJBK"""

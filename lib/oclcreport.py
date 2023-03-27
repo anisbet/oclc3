@@ -40,9 +40,9 @@ class OclcReport:
 
     def __init__(self, logger:Log, debug:bool=False):
         self.debug = debug
-        self.checks = {'total': 0, 'success': 0, 'errors': 0}
-        self.adds = {'total': 0, 'success': 0, 'errors': 0}
-        self.dels = {'total': 0, 'success': 0, 'errors': 0}
+        self.checks = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.adds   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.dels   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.logger = logger
 
     # Interprets the JSON response from the 
@@ -58,7 +58,7 @@ class OclcReport:
         results = []
         if json_data:
             if debug:
-                print(f"DEBUG: got JSON ===>{json_data}")
+                print(f"DEBUG: check got JSON ===>{json_data}")
             try:
                 entries = json_data['entries']
                 for entry in entries:
@@ -71,12 +71,13 @@ class OclcReport:
                     if found:
                         if old_num == new_num:
                             return_str += f" - success"
+                            self.checks['success'] += 1
                         else:
                             return_str += f" - updated to {new_num}"
-                        self.checks['success'] += 1
+                            self.checks['warnings'] += 1
                     else:
                         detail = entry['content']['detail']
-                        return_str += f" - error {detail}"
+                        return_str += f" - error not found message: {detail}"
                         self.checks['errors'] += 1
                     results.append(return_str)
                     self.checks['total'] += 1
@@ -85,103 +86,61 @@ class OclcReport:
                     reported_error = f"OCLC said: {json_data['message']}"
                 except KeyError as fx:
                     reported_error = f"JSON: {json_data}"
-                msg = f"check response failed while parsing {ex} attribute.\n{reported_error}\n"
+                msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
                 self.logger.logit(msg, 'error')
                 results.append(msg)
         return results
 
-    def set_response(self, code:int, json_data:dict, debug:bool=False):
+    # The oclc_nums_sent looks like: '850939592,850939596'
+    # Success
+    # -------
+    # {
+    #   "entries": [
+    #     {
+    #       "title": "44321120",
+    #       "content": {
+    #         "requestedOclcNumber": "44321120",
+    #         "currentOclcNumber": "37264396",
+    #         "institution": "OCWMS",
+    #         "status": "HTTP 403 Forbidden",
+    #         "detail": "Unauthorized 040 $c symbol for pilot modification.",
+    #         "id": "http://worldcat.org/oclc/37264396"
+    #       },
+    #       "updated": "2015-04-02T14:52:00.852Z"
+    #     },
+    #  ...
+    def set_response(self, code:int, json_data:dict, oclc_nums_sent:str, debug:bool=False):
         results = []
         if json_data:
             if debug:
-                print(f"DEBUG: got JSON ===>{json_data}")
-                # Invalid query. The request was unacceptable, often due to missing a required parameter.
-        # TODO: Handle results as below:
-        # Errors
-        # ------
-        # {
-        # "code": {
-        #     "value": "400",
-        #     "type": "http"
-        # },
-        # "message": "Required parameter oclcNumbers missing from request.",
-        # "detail": null
-        # }
-        #
-        # Success
-        # -------
-        # {
-        #   "entries": [
-        #     {
-        #       "title": "44321120",
-        #       "content": {
-        #         "requestedOclcNumber": "44321120",
-        #         "currentOclcNumber": "37264396",
-        #         "institution": "OCWMS",
-        #         "status": "HTTP 403 Forbidden",
-        #         "detail": "Unauthorized 040 $c symbol for pilot modification.",
-        #         "id": "http://worldcat.org/oclc/37264396"
-        #       },
-        #       "updated": "2015-04-02T14:52:00.852Z"
-        #     },
-        #     {
-        #       "title": "896872613",
-        #       "content": {
-        #         "requestedOclcNumber": "896872613",
-        #         "currentOclcNumber": "896872613",
-        #         "institution": "OCWMS",
-        #         "status": "HTTP 200 OK",
-        #         "id": "http://worldcat.org/oclc/896872613"
-        #       },
-        #       "updated": "2015-04-02T14:52:00.880Z"
-        #     },
-        #     {
-        #       "title": "99999999999",
-        #       "content": {
-        #         "requestedOclcNumber": "99999999999",
-        #         "currentOclcNumber": "99999999999",
-        #         "institution": "OCWMS",
-        #         "status": "HTTP 404 Not Found",
-        #         "detail": "Record not found for holdings operation",
-        #         "id": "http://worldcat.org/oclc/99999999999"
-        #       },
-        #       "updated": "2015-04-02T14:52:00.881Z"
-        #     }
-        #   ],
-        #   "extensions": [
-        #     {
-        #       "name": "os:totalResults",
-        #       "attributes": {
-        #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-        #       },
-        #       "children": [
-        #         "3"
-        #       ]
-        #     },
-        #     {
-        #       "name": "os:startIndex",
-        #       "attributes": {
-        #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-        #       },
-        #       "children": [
-        #         "1"
-        #       ]
-        #     },
-        #     {
-        #       "name": "os:itemsPerPage",
-        #       "attributes": {
-        #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-        #       },
-        #       "children": [
-        #         "3"
-        #       ]
-        #     }
-        #   ]
-        # }        
-        self.adds['total'] = 99
-        self.adds['success'] = 99
-        self.adds['errors'] = 99
-        self.logger.logit(f"===> status code returned: {code}")
+                print(f"DEBUG: set got JSON ===>{json_data}")
+            try:
+                entries = json_data['entries']
+                for entry in entries:
+                    title   = entry['title']
+                    old_num = entry['content']['requestedOclcNumber']
+                    new_num = entry['content']['currentOclcNumber']
+                    return_str = f"+{title}"
+                    if old_num == new_num:
+                        return_str += f" - success"
+                        self.adds['success'] += 1
+                    else:
+                        return_str += f" - updated to {new_num}"
+                        detail = entry['content']['detail']
+                        if detail:
+                            return_str += f", {detail}"
+                            self.adds['warnings'] += 1
+                    results.append(return_str)
+                    self.adds['total'] += 1
+            except KeyError as ex:
+                try:
+                    reported_error = f"OCLC said: {json_data['message']}"
+                except KeyError as ex:
+                    reported_error = f"JSON: {json_data}"
+                msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
+                self.logger.logit(msg, 'error')
+                self.adds['errors'] += 1
+                results.append(msg)
         return results
 
     def delete_response(self, code:int, json_data:dict, debug:bool=False):
