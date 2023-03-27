@@ -189,4 +189,8 @@ Send test OCLC numbers via the web service
     >>> o._set_holdings_(test_add_records, configs, logger, False)
     +850939592 - success
     +850939596 - success
-    
+
+
+Test that MARC21 XML records can be loaded
+------------------------------------------
+

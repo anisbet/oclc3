@@ -198,8 +198,8 @@ def _set_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False
     report = OclcReport(logger=logger, debug=debug)
     results = []
     while oclc_numbers:
-        status_code, json_response = ws.set_holdings(oclc_numbers)
-        results = report.set_response(code=status_code, json_data=json_response, debug=debug)
+        number_str, status_code, json_response = ws.set_holdings(oclc_numbers)
+        results = report.set_response(code=status_code, json_data=json_response, oclc_nums_sent=number_str, debug=debug)
         logger.logem(results)
     r_dict = report.get_set_results()
     logger.logit(f"operation 'set' {r_dict['total']} total records; {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)

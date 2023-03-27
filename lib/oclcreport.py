@@ -90,7 +90,8 @@ class OclcReport:
                 results.append(msg)
         return results
 
-    def set_response(self, code:int, json_data:dict, debug:bool=False):
+    # TODO: the oclc_nums_sent looks like: '850939592,850939596'
+    def set_response(self, code:int, json_data:dict, oclc_nums_sent:str, debug:bool=False):
         results = []
         if json_data:
             if debug:

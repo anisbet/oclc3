@@ -344,7 +344,7 @@ class OclcService:
     # Create / set institutional holdings. Used to let OCLC know a library has a title. 
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
     #   and the remaining returned.
-    # return: json dict response object.
+    # return: parameter OCLC numbers, the response status code, and json response object.
     # The successful request is returned:
     # {
     # "entries": [
@@ -414,7 +414,7 @@ class OclcService:
         # -d ''
         # https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB
         # The response is usually empty, with an HTTP code of 201
-        return response.status_code, response.json()
+        return param_str, response.status_code, response.json()
 
     # Unset / delete institutional holdings. Used to let OCLC know we don't have a title anymore.
     # param: oclcNumbers - list of oclc integers, as strings. The method will send the max allowable,
@@ -423,7 +423,7 @@ class OclcService:
     #  Whether or not to execute the operation if a local holdings record, or local biblliographic record
     #  exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
     #  1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
-    # return: json response object. 
+    # return: the response status code and json response object. 
     # The response from the web service is an empty dictionary.
     def unset_holdings(self, oclc_numbers:list, cascade:int = 1) -> dict:
         access_token = self._get_access_token_()
@@ -441,7 +441,7 @@ class OclcService:
         # Request URL
         # https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB
         # The response can be saved to the report database.
-        return response.json()
+        return response.status_code, response.json()
 
 if __name__ == "__main__":
     import doctest
