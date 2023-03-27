@@ -187,8 +187,8 @@ Send test OCLC numbers via the web service
     ... 850939592,
     ... 850939596,]
     >>> o._set_holdings_(test_add_records, configs, logger, False)
-    +850939596 - success
     +850939592 - success
+    +850939596 - success
     operation 'set' total records: 2, 2 successful, and 0 errors
 
 
