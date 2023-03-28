@@ -27,6 +27,7 @@
 import sqlite3
 import yaml
 from os.path import dirname, join, exists
+import sys
 
 #########
 # Typical response:
@@ -68,7 +69,7 @@ MAX_RECORDS_COMMIT = 10   # Number of records to insert before committing.
 class OclcRpt:
     # Creates the object with settings from oclc.yaml by default.
     def __init__(self, yaml_file:str, debug:bool=False):
-        yaml_file = join(dirname(__file__), '..', yaml_file)
+        yaml_file = join(dirname(__file__), yaml_file)
         if exists(yaml_file):
             with open(yaml_file) as YAML:
                 try:

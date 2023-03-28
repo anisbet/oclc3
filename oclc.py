@@ -23,9 +23,9 @@ from os.path import join, dirname, exists, getsize
 import yaml
 import argparse
 import re
-from lib.oclcws import OclcService
-from lib.oclcreport import OclcReport
-from lib.log import Log
+from oclcws import OclcService
+from oclcreport import OclcReport
+from log import Log
 
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
 MASTER_LIST_PATH = 'master.lst'
@@ -233,7 +233,11 @@ def diff_deletes_adds(del_nums:list, add_nums:list) -> list:
 # param: Logger. 
 # param: debug True for debug information.
 # return: None
-def set_institution_holdings(oclc_numbers:list, configs:dict, logger:Logger, debug:bool=False):
+def set_institution_holdings(
+  oclc_numbers:list, 
+  configs:dict, 
+  logger:Log, 
+  debug:bool=False):
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
@@ -250,7 +254,7 @@ def set_institution_holdings(oclc_numbers:list, configs:dict, logger:Logger, deb
 # param: Logger. 
 # param: debug True for debug information.
 # return: None
-def check_holdings(oclc_numbers:list, configs:dict, logger:Logger, debug:bool=False):
+def check_holdings(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False):
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
@@ -266,7 +270,7 @@ def check_holdings(oclc_numbers:list, configs:dict, logger:Logger, debug:bool=Fa
 def create_institution_specific_bib_record(
   flat_records:list, 
   configs:dict, 
-  logger:Logger, 
+  logger:Log, 
   debug:bool=False):
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
@@ -322,16 +326,16 @@ def main(argv):
         pass
     
     # Two lists, one for adding holdings and one for deleting holdings. 
-    set_institution_holdings   = []
-    unset_institution_holdings = []
-    check_holdings = []
+    set_holdings_lst   = []
+    unset_holdings_lst = []
+    check_holdings     = []
     # Add records to institution's holdings.
     if args.set:
-        set_institution_holdings = _read_num_file_(args.set, 'set', args.debug)
+        set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
         
     # delete records from institutional holdings.
     if args.unset:
-        unset_institution_holdings = _read_num_file_(args.unset, 'unset', args.debug)
+        unset_holdings_lst = _read_num_file_(args.unset, 'unset', args.debug)
 
     if args.check:
         check_holdings = _read_num_file_(args.check, 'check', args.debug)
@@ -340,16 +344,16 @@ def main(argv):
     if args.local and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
-        set_institution_holdings.clear()
-        set_institution_holdings = _read_num_file_(args.local, 'set', args.debug)
+        set_holdings_lst.clear()
+        set_holdings_lst = _read_num_file_(args.local, 'set', args.debug)
         # Read the report of remote holdings (holdings at OCLC)
-        unset_institution_holdings.clear()
-        unset_institution_holdings = _read_num_file_(args.remote, 'unset', args.debug)
+        unset_holdings_lst.clear()
+        unset_holdings_lst = _read_num_file_(args.remote, 'unset', args.debug)
         # Create a 'master' list that indicates with are to be removed 
         # and which are to be added, then exit. The script can then be re-run
         # using the same file for both the '--set' and '--unset' flags to run
         # the master. Check the list first before beginning.
-        master_list = diff_deletes_adds(unset_institution_holdings, set_institution_holdings)
+        master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst)
         write_master(MASTER_LIST_PATH, master_list=master_list)
         read_master(MASTER_LIST_PATH, debug=args.debug)
 

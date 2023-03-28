@@ -61,7 +61,7 @@ Test XML production from slim FLAT data.
 <leader>jm a0c a</leader>
 <controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(OCoLC)769144454</subfield>
+  <subfield code="a">(OCoLC)769144454</subfield>
 </datafield>
 </record>
 
@@ -77,7 +77,7 @@ Test standard namespace marc XML production
 <marc:leader>jm a0c a</marc:leader>
 <marc:controlfield tag="008">111222s2012    nyu||n|j|         | eng d</marc:controlfield>
 <marc:datafield tag="035" ind1=" " ind2=" ">
-	<marc:subfield code="a">(OCoLC)769144454</marc:subfield>
+  <marc:subfield code="a">(OCoLC)769144454</marc:subfield>
 </marc:datafield>
 </marc:record>
 
@@ -112,30 +112,30 @@ Test convert method
 <controlfield tag="007">sd fsngnnmmned</controlfield>
 <controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
 <datafield tag="024" ind1="1" ind2=" ">
-	<subfield code="a">886979578425</subfield>
+  <subfield code="a">886979578425</subfield>
 </datafield>
 <datafield tag="028" ind1="0" ind2="0">
-	<subfield code="a">88697957842</subfield>
+  <subfield code="a">88697957842</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(Sirsi) a1001499</subfield>
+  <subfield code="a">(Sirsi) a1001499</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(Sirsi) a1001499</subfield>
+  <subfield code="a">(Sirsi) a1001499</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(OCoLC)769144454</subfield>
+  <subfield code="a">(OCoLC)769144454</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(CaAE) a1001499</subfield>
+  <subfield code="a">(CaAE) a1001499</subfield>
 </datafield>
 <datafield tag="040" ind1=" " ind2=" ">
-	<subfield code="a">TEFMT</subfield>
-	<subfield code="c">TEFMT</subfield>
-	<subfield code="d">TEF</subfield>
-	<subfield code="d">BKX</subfield>
-	<subfield code="d">EHH</subfield>
-	<subfield code="d">NYP</subfield>
-	<subfield code="d">UtOrBLW</subfield>
+  <subfield code="a">TEFMT</subfield>
+  <subfield code="c">TEFMT</subfield>
+  <subfield code="d">TEF</subfield>
+  <subfield code="d">BKX</subfield>
+  <subfield code="d">EHH</subfield>
+  <subfield code="d">NYP</subfield>
+  <subfield code="d">UtOrBLW</subfield>
 </datafield>
 </record>

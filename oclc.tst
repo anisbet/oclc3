@@ -2,10 +2,13 @@
 Test oclc script's functionality.
 
 
-    >>> import oclc as o
-    >>> from lib.log import Log
-    >>> configs = o._load_yaml_('test.yaml')
-    >>> logger = Log(configs['report'])
+>>> import oclc as o
+>>> from log import Log
+>>> from flat2marcxml import MarcXML
+
+
+>>> configs = o._load_yaml_('test.yaml')
+>>> logger = Log(configs['report'])
 
 Setting
 -------
@@ -221,31 +224,31 @@ Test that MARC21 XML records can be loaded
 <controlfield tag="007">sd fsngnnmmned</controlfield>
 <controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
 <datafield tag="024" ind1="1" ind2=" ">
-	<subfield code="a">886979578425</subfield>
+  <subfield code="a">886979578425</subfield>
 </datafield>
 <datafield tag="028" ind1="0" ind2="0">
-	<subfield code="a">88697957842</subfield>
+  <subfield code="a">88697957842</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(Sirsi) a1001499</subfield>
+  <subfield code="a">(Sirsi) a1001499</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(Sirsi) a1001499</subfield>
+  <subfield code="a">(Sirsi) a1001499</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(OCoLC)769144454</subfield>
+  <subfield code="a">(OCoLC)769144454</subfield>
 </datafield>
 <datafield tag="035" ind1=" " ind2=" ">
-	<subfield code="a">(CaAE) a1001499</subfield>
+  <subfield code="a">(CaAE) a1001499</subfield>
 </datafield>
 <datafield tag="040" ind1=" " ind2=" ">
-	<subfield code="a">TEFMT</subfield>
-	<subfield code="c">TEFMT</subfield>
-	<subfield code="d">TEF</subfield>
-	<subfield code="d">BKX</subfield>
-	<subfield code="d">EHH</subfield>
-	<subfield code="d">NYP</subfield>
-	<subfield code="d">UtOrBLW</subfield>
+  <subfield code="a">TEFMT</subfield>
+  <subfield code="c">TEFMT</subfield>
+  <subfield code="d">TEF</subfield>
+  <subfield code="d">BKX</subfield>
+  <subfield code="d">EHH</subfield>
+  <subfield code="d">NYP</subfield>
+  <subfield code="d">UtOrBLW</subfield>
 </datafield>
 </record>
 

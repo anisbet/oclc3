@@ -21,7 +21,7 @@ import json
 from os.path import dirname, join, exists
 from datetime import datetime
 import re
-from lib.log import Log
+from log import Log
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 

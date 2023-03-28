@@ -9,7 +9,7 @@ Test specialized functions in the oclcws module
     >>> import sys
     >>> from os.path import exists
 
-    >>> yaml_file = '../test.yaml'
+    >>> yaml_file = 'test.yaml'
     >>> configs = {}
     >>> if exists(yaml_file):
     ...     with open(yaml_file) as f:
