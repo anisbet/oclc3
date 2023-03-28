@@ -58,17 +58,17 @@ Diff-ing two different Lists
 
     >>> u = []
     >>> s = [2,3,4]
-    >>> M = o._diff_(u, s)
+    >>> M = o.diff_deletes_adds(u, s)
     >>> print(M)
     ['+2', '+3', '+4']
     >>> u = [1,2,3]
     >>> s = []
-    >>> M = o._diff_(u, s)
+    >>> M = o.diff_deletes_adds(u, s)
     >>> print(M)
     ['-1', '-2', '-3']
     >>> r = [1,2,3]
     >>> l = [2,3,4]
-    >>> M = o._diff_(r, l)
+    >>> M = o.diff_deletes_adds(r, l)
     >>> print(M)
     ['-1', ' 2', ' 3', '+4']
 
@@ -103,13 +103,13 @@ Check the writing and reading of the 'master.lst'
 -----------
 
 
-    >>> unset_holdings = o._read_num_file_('tests/t.set', 'unset', False)
-    >>> o.write_master(path='tests/test_master.lst', del_list=unset_holdings, debug=False)
+    >>> unset_institution_holdings = o._read_num_file_('tests/t.set', 'unset', False)
+    >>> o.write_master(path='tests/test_master.lst', del_list=unset_institution_holdings, debug=False)
     >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
     >>> print(u)
     ['12345', '101112']
-    >>> set_holdings = o._read_num_file_('tests/t.set', 'set', False)
-    >>> o.write_master(path='tests/test_master.lst', add_list=set_holdings, debug=False)
+    >>> set_institution_holdings = o._read_num_file_('tests/t.set', 'set', False)
+    >>> o.write_master(path='tests/test_master.lst', add_list=set_institution_holdings, debug=False)
     >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
     >>> print(s)
     ['12345', '6789']
@@ -125,7 +125,7 @@ Check for both set and unset
 ----------------------------
 
 
-    >>> o.write_master(path='tests/test_master.lst', add_list=set_holdings, del_list=unset_holdings, check_list=check_holdings, debug=False)
+    >>> o.write_master(path='tests/test_master.lst', add_list=set_institution_holdings, del_list=unset_institution_holdings, check_list=check_holdings, debug=False)
     >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
     >>> print(f"{c}")
     ['12345', '999877']
@@ -170,7 +170,7 @@ Send test OCLC numbers via the web service
     ... 850940351,
     ... 850940364,
     ... 850940368, ]
-    >>> o._check_holdings_(test_check_records, configs, logger, False)
+    >>> o.check_holdings(test_check_records, configs, logger, False)
     ?850939592 - success
     ?850939596 - success
     ?850939598 - success
@@ -186,7 +186,7 @@ Send test OCLC numbers via the web service
     >>> test_add_records = [
     ... 850939592,
     ... 850939596,]
-    >>> o._set_holdings_(test_add_records, configs, logger, False)
+    >>> o.set_institution_holdings(test_add_records, configs, logger, False)
     +850939592 - success
     +850939596 - success
     operation 'set' total records: 2, 2 successful, and 0 errors
@@ -195,38 +195,57 @@ Send test OCLC numbers via the web service
 Test that MARC21 XML records can be loaded
 ------------------------------------------
 
->>> test_record_flat = """*** DOCUMENT BOUNDARY ***
-... ... FORM=MARC
-... .000. |aam a0n a
-... .001. |aepl01318816
-... .005. |a20140415031118.0
-... .008. |a120510t20122011maua   j      000 1 eng c
-... .010.   |a  2011277368
-... .035.   |a(Sirsi) a1002054
-... .035.   |a(Sirsi) a1002054
-... .035.   |a(OCoLC)745979831
-... .035.   |a(ULS) epl01318816
-... .040.   |dUtOrBLW
-... .082. 04|a[E]|223
-... .099.   |aE DUD
-... .100. 1 |aDuddle, Jonny.
-... .245. 14|aThe pirates next door :|bstarring the Jolley-Rogers /|cJonny Duddle.
-... .250.   |aFirst U.S. edition.
-... .264.  1|aSomerville, Mass. :|bTemplar Books,|c2012.
-... .264.  4|c©2011
-... .300.   |a36 unnumbered pages :|bchiefly color illustrations ;|c26 x 30 cm
-... .336.   |atext|2rdacontent
-... .336.   |astill image|2rdacontent
-... .337.   |aunmediated|2rdamedia
-... .338.   |avolume|2rdacarrier
-... .520.   |aWhen a pirate family moves into her quiet seaside town during ship
-... repairs, young Matilda defies the edicts of the gossiping adults in the
-... community to befriend young pirate Jim Lad.
-... .596.   |a1 4 7 10 13 16 20 22
-... .650.  0|aPirates|vJuvenile fiction.
-... .650.  0|aFriendship|vJuvenile fiction.
-... .650.  0|aNeighbors|vJuvenile fiction.
-... .020.   |a0763658421
-... .020.   |a9780763658427
-... .947.   |fE-PR|hEPLZJBK|q9|p19.19
-... .999.   |hEPLZJBK"""
+>>> marc_slim = MarcXML([
+... "*** DOCUMENT BOUNDARY ***",
+... "FORM=MUSIC",
+... ".000. |ajm a0c a",
+... ".001. |aocn769144454",
+... ".003. |aOCoLC",
+... ".005. |a20140415031111.0",
+... ".007. |asd fsngnnmmned",
+... ".008. |a111222s2012    nyu||n|j|         | eng d",
+... ".024. 1 |a886979578425",
+... ".028. 00|a88697957842",
+... ".035.   |a(Sirsi) a1001499",
+... ".035.   |a(Sirsi) a1001499",
+... ".035.   |a(OCoLC)769144454",
+... ".035.   |a(CaAE) a1001499",
+... ".040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW"])
+>>> print(marc_slim)
+<?xml version="1.0" encoding="UTF-8"?>
+<record xmlns="http://www.loc.gov/MARC21/slim" >
+<leader>jm a0c a</leader>
+<controlfield tag="001">ocn769144454</controlfield>
+<controlfield tag="003">OCoLC</controlfield>
+<controlfield tag="005">20140415031111.0</controlfield>
+<controlfield tag="007">sd fsngnnmmned</controlfield>
+<controlfield tag="008">111222s2012    nyu||n|j|         | eng d</controlfield>
+<datafield tag="024" ind1="1" ind2=" ">
+	<subfield code="a">886979578425</subfield>
+</datafield>
+<datafield tag="028" ind1="0" ind2="0">
+	<subfield code="a">88697957842</subfield>
+</datafield>
+<datafield tag="035" ind1=" " ind2=" ">
+	<subfield code="a">(Sirsi) a1001499</subfield>
+</datafield>
+<datafield tag="035" ind1=" " ind2=" ">
+	<subfield code="a">(Sirsi) a1001499</subfield>
+</datafield>
+<datafield tag="035" ind1=" " ind2=" ">
+	<subfield code="a">(OCoLC)769144454</subfield>
+</datafield>
+<datafield tag="035" ind1=" " ind2=" ">
+	<subfield code="a">(CaAE) a1001499</subfield>
+</datafield>
+<datafield tag="040" ind1=" " ind2=" ">
+	<subfield code="a">TEFMT</subfield>
+	<subfield code="c">TEFMT</subfield>
+	<subfield code="d">TEF</subfield>
+	<subfield code="d">BKX</subfield>
+	<subfield code="d">EHH</subfield>
+	<subfield code="d">NYP</subfield>
+	<subfield code="d">UtOrBLW</subfield>
+</datafield>
+</record>
+

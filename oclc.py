@@ -30,6 +30,25 @@ from lib.log import Log
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
 MASTER_LIST_PATH = 'master.lst'
 TEST = True
+
+
+# Loads the yaml file for configs.
+# param: path of the yaml file. 
+# return: dictionary of settings, or an empty dict if there was an error.
+def _load_yaml_(yaml_path:str) -> dict:
+    yaml_file = join(dirname(__file__), yaml_path)
+    config = {}
+    if exists(yaml_file):
+        with open(yaml_file) as f:
+            try:
+                config = yaml.safe_load(f)
+            except yaml.YAMLError as exc:
+                config['error'] = f"{exc}"
+    else:
+        msg = f"*error, yaml file not found! Expected '{yaml_file}'"
+        config['error'] = msg
+    return config
+
 # Find set values in a string. 
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
@@ -185,49 +204,11 @@ def read_master(
             print(f"first 5 chk records: {check_list[:5]}")
     return add_list, del_list, check_list
 
-# Adds or sets the institutional holdings.
-# param: oclc number list of holdings to set.
-# param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server. 
-# param: Logger. 
-# param: debug True for debug information.
-# return: None
-def _set_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False):
-    # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    results = []
-    while oclc_numbers:
-        number_str, status_code, json_response = ws.set_holdings(oclc_numbers)
-        results = report.set_response(code=status_code, json_data=json_response, oclc_nums_sent=number_str, debug=debug)
-        logger.logem(results)
-    r_dict = report.get_set_results()
-    logger.logit(f"operation 'set' total records: {r_dict['total']}, {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
-
-# Checks list of OCLC control numbers as part of the institutional holdings.
-# param: oclc number list of holdings to set.
-# param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server.
-# param: Logger. 
-# param: debug True for debug information.
-# return: None
-def _check_holdings_(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False):
-    # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    results = []
-    while oclc_numbers:
-        response = ws.check_control_numbers(oclc_numbers)
-        results = report.check_response(response, debug=debug)
-        logger.logem(results)
-    r_dict = report.get_check_results()
-    logger.logit(f"operation 'check' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
-
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.
 # param:  List of oclc numbers to delete or unset.
 # param:  List of oclc numbers to set or add. 
-def _diff_(del_nums:list, add_nums:list) -> list:
+def diff_deletes_adds(del_nums:list, add_nums:list) -> list:
     # Store uniq nums and sign.
     ret_dict = {}
     for oclcnum in del_nums:
@@ -245,22 +226,53 @@ def _diff_(del_nums:list, add_nums:list) -> list:
         ret_list.append(f"{sign}{num}")
     return ret_list
 
-# Loads the yaml file for configs.
-# param: path of the yaml file. 
-# return: dictionary of settings, or an empty dict if there was an error.
-def _load_yaml_(yaml_path:str) -> dict:
-    yaml_file = join(dirname(__file__), yaml_path)
-    config = {}
-    if exists(yaml_file):
-        with open(yaml_file) as f:
-            try:
-                config = yaml.safe_load(f)
-            except yaml.YAMLError as exc:
-                config['error'] = f"{exc}"
-    else:
-        msg = f"*error, yaml file not found! Expected '{yaml_file}'"
-        config['error'] = msg
-    return config
+# Adds or sets the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server. 
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def set_institution_holdings(oclc_numbers:list, configs:dict, logger:Logger, debug:bool=False):
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    while oclc_numbers:
+        number_str, status_code, json_response = ws.set_institution_holdings(oclc_numbers)
+        report.set_response(code=status_code, json_data=json_response, oclc_nums_sent=number_str, debug=debug)
+    r_dict = report.get_set_holdings_results()
+    logger.logit(f"operation 'set' total records: {r_dict['total']}, {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
+
+# Checks list of OCLC control numbers as part of the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server.
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def check_holdings(oclc_numbers:list, configs:dict, logger:Logger, debug:bool=False):
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    while oclc_numbers:
+        response = ws.check_oclc_numbers(oclc_numbers)
+        report.check_response(response, debug=debug)
+    r_dict = report.get_check_results()
+    logger.logit(f"operation 'check' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
+
+# Creates an institutional-specific bib record. 
+# param: list of records as lists of FLAT strings, where FLAT refers to 
+#  SirsiDynix's Symphony FLAT record format.
+def create_institution_specific_bib_record(
+  flat_records:list, 
+  configs:dict, 
+  logger:Logger, 
+  debug:bool=False):
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    for flat_record in flat_records:
+        xml_record = MarcXML(flat_record)
+
 
 # Main entry to the application if not testing.
 def main(argv):
@@ -310,16 +322,16 @@ def main(argv):
         pass
     
     # Two lists, one for adding holdings and one for deleting holdings. 
-    set_holdings   = []
-    unset_holdings = []
+    set_institution_holdings   = []
+    unset_institution_holdings = []
     check_holdings = []
     # Add records to institution's holdings.
     if args.set:
-        set_holdings = _read_num_file_(args.set, 'set', args.debug)
+        set_institution_holdings = _read_num_file_(args.set, 'set', args.debug)
         
     # delete records from institutional holdings.
     if args.unset:
-        unset_holdings = _read_num_file_(args.unset, 'unset', args.debug)
+        unset_institution_holdings = _read_num_file_(args.unset, 'unset', args.debug)
 
     if args.check:
         check_holdings = _read_num_file_(args.check, 'check', args.debug)
@@ -328,16 +340,16 @@ def main(argv):
     if args.local and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
-        set_holdings.clear()
-        set_holdings = _read_num_file_(args.local, 'set', args.debug)
+        set_institution_holdings.clear()
+        set_institution_holdings = _read_num_file_(args.local, 'set', args.debug)
         # Read the report of remote holdings (holdings at OCLC)
-        unset_holdings.clear()
-        unset_holdings = _read_num_file_(args.remote, 'unset', args.debug)
+        unset_institution_holdings.clear()
+        unset_institution_holdings = _read_num_file_(args.remote, 'unset', args.debug)
         # Create a 'master' list that indicates with are to be removed 
         # and which are to be added, then exit. The script can then be re-run
         # using the same file for both the '--set' and '--unset' flags to run
         # the master. Check the list first before beginning.
-        master_list = _diff_(unset_holdings, set_holdings)
+        master_list = diff_deletes_adds(unset_institution_holdings, set_institution_holdings)
         write_master(MASTER_LIST_PATH, master_list=master_list)
         read_master(MASTER_LIST_PATH, debug=args.debug)
 

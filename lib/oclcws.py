@@ -150,7 +150,7 @@ class OclcService:
     # verification at OCLC. The remainder of the list and the JSON response is returned.
     # Param:  List of OCLC numbers (as integers) to verify.
     # Return: response JSON.
-    def check_control_numbers(self, oclc_numbers:list) -> dict:
+    def check_oclc_numbers(self, oclc_numbers:list) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -192,14 +192,14 @@ class OclcService:
         return response.json()
 
 
-    # Used to create a bibliographic record.
-    # param: record in XML. 
+    # Used to create a bibliographic record specific to your institution.
+    # param: record in MARC21 XML. 
     # return: XML record, or XML error message. 
     # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_bib_record(self, record_xml:str) -> str:
+    def create_intitution_level_bib_record(self, record_xml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -237,14 +237,15 @@ class OclcService:
         # '
         return response.content()
 
-    # Used to create a bibliographic with holdings at a specific branch.
+    # Used to create a bibliographic with holdings for a specific branch of 
+    # your institution.
     # param: record in XML. 
     # return: XML record, or XML error message. 
     # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_local_bib_record(self, record_xml:str) -> str:
+    def create_branch_level_bib_record(self, record_xml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -286,7 +287,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def update_bib_record(self, record_xml:str) -> str:
+    def update_institutional_level_bib_record(self, record_xml:str) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -345,59 +346,7 @@ class OclcService:
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
     #   and the remaining returned.
     # return: parameter OCLC numbers, the response status code, and json response object.
-    # The successful request is returned:
-    # {
-    # "entries": [
-    #     {
-    #     "title": "44321120",
-    #     "content": {
-    #         "requestedOclcNumber": "44321120",
-    #         "currentOclcNumber": "37264396",
-    #         "institution": "OCWMS",
-    #         "status": "HTTP 403 Forbidden",
-    #         "detail": "Unauthorized 040 $c symbol for pilot modification.",
-    #         "id": "http://worldcat.org/oclc/37264396"
-    #     },
-    #     "updated": "2015-04-02T14:52:00.852Z"
-    #     },
-    #     {
-    #     "title": "896872613",
-    #     "content": {
-    #         "requestedOclcNumber": "896872613",
-    #         "currentOclcNumber": "896872613",
-    #         "institution": "OCWMS",
-    #         "status": "HTTP 200 OK",
-    #         "id": "http://worldcat.org/oclc/896872613"
-    #     },
-    #     "updated": "2015-04-02T14:52:00.880Z"
-    #     },
-    #     {
-    #     "title": "99999999999",
-    #     "content": {
-    #         "requestedOclcNumber": "99999999999",
-    #         "currentOclcNumber": "99999999999",
-    #         "institution": "OCWMS",
-    #         "status": "HTTP 404 Not Found",
-    #         "detail": "Record not found for holdings operation",
-    #         "id": "http://worldcat.org/oclc/99999999999"
-    #     },
-    #     "updated": "2015-04-02T14:52:00.881Z"
-    #     }
-    # ],
-    # "extensions": [
-    #     {
-    #     "name": "os:totalResults",
-    #     "attributes": {
-    #         "xmlns:os": "http://a9.com/-/spec/opensearch/1.1/"
-    #     },
-    #     "children": [
-    #         "3"
-    #     ]
-    #     },
-    #     ...
-    # ]
-    # }
-    def set_holdings(self, oclc_numbers:list) -> dict:
+    def set_institution_holdings(self, oclc_numbers:list) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -425,7 +374,7 @@ class OclcService:
     #  1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
     # return: the response status code and json response object. 
     # The response from the web service is an empty dictionary.
-    def unset_holdings(self, oclc_numbers:list, cascade:int = 1) -> dict:
+    def unset_institution_holdings(self, oclc_numbers:list, cascade:int = 1) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",

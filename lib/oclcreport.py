@@ -54,7 +54,7 @@ class OclcReport:
     # 
     # For example: ['?12345 - success', '?67890 - updated to 6777790', 
     # '?999999999 - error Record not found.']
-    def check_response(self, json_data:dict, debug:bool=False) -> list:
+    def check_response(self, json_data:dict, debug:bool=False):
         results = []
         if json_data:
             if debug:
@@ -89,7 +89,7 @@ class OclcReport:
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
                 self.logger.logit(msg, 'error')
                 results.append(msg)
-        return results
+        self.logger.logem(results)
 
     # The oclc_nums_sent looks like: '850939592,850939596'
     # Success
@@ -109,7 +109,11 @@ class OclcReport:
     #       "updated": "2015-04-02T14:52:00.852Z"
     #     },
     #  ...
-    def set_response(self, code:int, json_data:dict, oclc_nums_sent:str, debug:bool=False):
+    def set_response(self, 
+      code:int, 
+      json_data:dict, 
+      oclc_nums_sent:str, 
+      debug:bool=False):
         results = []
         if json_data:
             if debug:
@@ -141,7 +145,7 @@ class OclcReport:
                 self.logger.logit(msg, 'error')
                 self.adds['errors'] += 1
                 results.append(msg)
-        return results
+        self.logger.logem(results)
 
     def delete_response(self, code:int, json_data:dict, debug:bool=False):
         pass
@@ -153,7 +157,7 @@ class OclcReport:
 
     # Returns the set result tally dictionary. 
     # return: dictionary of set tally results.
-    def get_set_results(self) ->dict:
+    def get_set_holdings_results(self) ->dict:
         return self.adds
 
     def __str__(self):
