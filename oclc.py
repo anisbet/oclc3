@@ -254,7 +254,11 @@ def set_institution_holdings(
 # param: Logger. 
 # param: debug True for debug information.
 # return: None
-def check_holdings(oclc_numbers:list, configs:dict, logger:Log, debug:bool=False):
+def check_holdings(
+  oclc_numbers:list, 
+  configs:dict, 
+  logger:Log, 
+  debug:bool=False):
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
@@ -276,7 +280,11 @@ def create_institution_specific_bib_record(
     report = OclcReport(logger=logger, debug=debug)
     for flat_record in flat_records:
         xml_record = MarcXML(flat_record)
-
+        response = ws.create_intitution_level_bib_record(record_xml)
+        # TODO: implement below
+    #     report.create_bib_response(response, debug=debug)
+    # r_dict = report.get_bib_load_results()
+    # logger.logit(f"bibs created: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
 
 # Main entry to the application if not testing.
 def main(argv):

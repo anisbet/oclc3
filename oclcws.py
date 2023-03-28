@@ -148,9 +148,10 @@ class OclcService:
 
     # Takes a list of OCLC numbers as integers, and removes the max allowed count for 
     # verification at OCLC. The remainder of the list and the JSON response is returned.
-    # Param:  List of OCLC numbers (as integers) to verify.
+    # param:  List of OCLC numbers (as integers) to verify.
+    # param: debug boolean True will show the request URL.
     # Return: response JSON.
-    def check_oclc_numbers(self, oclc_numbers:list) -> dict:
+    def check_oclc_numbers(self, oclc_numbers:list, debug:bool=False) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -162,6 +163,8 @@ class OclcService:
         # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
         param_str = self._list_to_param_str_(oclc_numbers)
         url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
+        if debug:
+            print(f"DEBUG: url={url}")
         response = requests.get(url=url, headers=headers)
         # self.logger.logit(f"response: '{response.json()}'")
         # {'entries': [
@@ -194,12 +197,13 @@ class OclcService:
 
     # Used to create a bibliographic record specific to your institution.
     # param: record in MARC21 XML. 
+    # param: debug boolean True will show the request URL.
     # return: XML record, or XML error message. 
     # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_intitution_level_bib_record(self, record_xml:str) -> str:
+    def create_intitution_level_bib_record(self, record_xml:str, debug:bool=False) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -207,6 +211,8 @@ class OclcService:
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
         url = f"https://worldcat.org/bib/data?inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        if debug:
+            print(f"DEBUG: url={url}")
         response = requests.post(url=url, data=record_xml, headers=headers)
         # curl -X 'POST' \
         # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
@@ -240,12 +246,14 @@ class OclcService:
     # Used to create a bibliographic with holdings for a specific branch of 
     # your institution.
     # param: record in XML. 
+    # param: library branch that holds the bib record.
+    # param: debug boolean True will show the request URL.
     # return: XML record, or XML error message. 
     # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_branch_level_bib_record(self, record_xml:str) -> str:
+    def create_branch_level_bib_record(self, record_xml:str, branch:str='MAIN', debug:bool=False) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -253,6 +261,8 @@ class OclcService:
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
         url = f"https://worldcat.org/lbd/data?inst={self.inst_id}&instSymbol={self.inst_symbol}&holdingLibraryCode=MAIN"
+        if debug:
+            print(f"DEBUG: url={url}")
         response = requests.post(url=url, data=record_xml, headers=headers)
         # curl -X 'POST' \
         # 'https://worldcat.org/lbd/data?inst=128807&instSymbol=OCPSB&holdingLibraryCode=MAIN' \
@@ -282,12 +292,13 @@ class OclcService:
 
     # Used to update a bibliographic with holdings at a specific branch.
     # param: record in XML. 
+    # param: debug boolean True will show the request URL.
     # return: XML record, or XML error message. HTTP code 200.
     # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def update_institutional_level_bib_record(self, record_xml:str) -> str:
+    def update_institutional_level_bib_record(self, record_xml:str, debug:bool=False) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -295,6 +306,8 @@ class OclcService:
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
         url = f"https://worldcat.org/bib/data?inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        if debug:
+            print(f"DEBUG: url={url}")
         response = requests.put(url=url, data=record_xml, headers=headers)
         # curl -X 'PUT' \
         # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
@@ -345,8 +358,9 @@ class OclcService:
     # Create / set institutional holdings. Used to let OCLC know a library has a title. 
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
     #   and the remaining returned.
+    # param: debug boolean True will show the request URL.
     # return: parameter OCLC numbers, the response status code, and json response object.
-    def set_institution_holdings(self, oclc_numbers:list) -> dict:
+    def set_institution_holdings(self, oclc_numbers:list, debug:bool=False) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -354,7 +368,8 @@ class OclcService:
         }
         param_str = self._list_to_param_str_(oclc_numbers)
         url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}&inst={self.inst_id}&instSymbol={self.inst_symbol}"
-        # print(f"DEBUG:===> url is {url} is that what you expected?")
+        if debug:
+            print(f"DEBUG: url={url}")
         response = requests.post(url=url, headers=headers)
         # curl -X 'POST' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB' \
@@ -369,12 +384,13 @@ class OclcService:
     # param: oclcNumbers - list of oclc integers, as strings. The method will send the max allowable,
     #  (50), or the max contents of the argument list, which ever is smaller.
     # param: cascade - int 
+    # param: debug boolean True will show the request URL.
     #  Whether or not to execute the operation if a local holdings record, or local biblliographic record
     #  exists. 0 - don't remove holdings if local holding record or local bibliographic record exists 
     #  1 - yes remove holdings and delete local holdings record or local bibliographic record exists.
     # return: the response status code and json response object. 
     # The response from the web service is an empty dictionary.
-    def unset_institution_holdings(self, oclc_numbers:list, cascade:int = 1) -> dict:
+    def unset_institution_holdings(self, oclc_numbers:list, cascade:int = 1, debug:bool=False) -> dict:
         access_token = self._get_access_token_()
         headers = {
             "accept": "application/atom+json",
@@ -382,6 +398,8 @@ class OclcService:
         }
         param_str = self._list_to_param_str_(oclc_numbers)
         url = f"https://worldcat.org/ih/datalist?oclcNumbers={param_str}&cascade={cascade}&inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        if debug:
+            print(f"DEBUG: url={url}")
         response = requests.delete(url=url, headers=headers)
         # curl -X 'DELETE' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB' \
