@@ -96,7 +96,7 @@ Tests for web service responses, but also provides reporting.
 ?12345 - success
 ?67890 - updated to 6777790
 ?999999999 - error not found message: Record not found.
-	
+True
 
 
 Test the checks dictionary for tallies
@@ -105,3 +105,27 @@ Test the checks dictionary for tallies
 >>> report.get_check_results()
 {'total': 3, 'success': 1, 'warnings': 1, 'errors': 1}
 
+
+
+Test the create bib response method
+-----------------------------------
+
+
+>>> response_rec = """<?xml version="1.0" encoding="UTF-8"?> <record xmlns="http://www.loc.gov/MARC21/slim">
+...  <leader>00000n   a2200000   4500</leader>
+...  <controlfield tag="004">99999999999999999999999</controlfield>
+...  <datafield tag="240" ind1="1" ind2="4">
+...    <subfield code="a">UniformTitleF</subfield>
+...    <subfield code="l">LanguageOfWork</subfield>
+...    <subfield code="g">OCL</subfield>
+...  </datafield>
+...  <datafield tag="500" ind1=" " ind2=" ">
+...    <subfield code="a">FOR OCLC DEVELOPER NETWORK DOCUMENTATION</subfield>
+...  </datafield>
+...  <datafield tag="935" ind1=" " ind2=" ">
+...    <subfield code="a">MyLocalSystemNumber</subfield>
+...  </datafield>
+...  <datafield tag="940" ind1=" " ind2=" ">
+...    <subfield code="a">OCWMS</subfield>
+...  </datafield>
+... </record>"""

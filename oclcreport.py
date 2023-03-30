@@ -43,6 +43,7 @@ class OclcReport:
         self.checks = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.adds   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.dels   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.bibs   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.logger = logger
 
     # Interprets the JSON response from the 
@@ -54,8 +55,9 @@ class OclcReport:
     # 
     # For example: ['?12345 - success', '?67890 - updated to 6777790', 
     # '?999999999 - error Record not found.']
-    def check_response(self, json_data:dict, debug:bool=False):
+    def check_response(self, json_data:dict, debug:bool=False) ->bool:
         results = []
+        b_result= True
         if json_data:
             if debug:
                 print(f"DEBUG: check got JSON ===>{json_data}")
@@ -89,7 +91,10 @@ class OclcReport:
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
                 self.logger.logit(msg, 'error')
                 results.append(msg)
+                # There was a problem with the web service so stop processing.
+                b_result = False
         self.logger.logem(results)
+        return b_result
 
     # The oclc_nums_sent looks like: '850939592,850939596'
     # Success
@@ -111,10 +116,10 @@ class OclcReport:
     #  ...
     def set_response(self, 
       code:int, 
-      json_data:dict, 
-      oclc_nums_sent:str, 
-      debug:bool=False):
+      json_data:dict,
+      debug:bool=False) ->bool:
         results = []
+        b_result= True
         if json_data:
             if debug:
                 print(f"DEBUG: set got JSON ===>{json_data}")
@@ -145,9 +150,18 @@ class OclcReport:
                 self.logger.logit(msg, 'error')
                 self.adds['errors'] += 1
                 results.append(msg)
+                b_result = False
         self.logger.logem(results)
+        return b_result
 
+    # TODO: Finish me
     def delete_response(self, code:int, json_data:dict, debug:bool=False):
+        pass
+
+    # TODO: Finish me
+    def create_bib_response(response:dict, debug:bool=False):
+        # Should see this in the response.
+        # <controlfield tag="004">99999999999999999999999</controlfield>
         pass
 
     # Returns the checks result tally dictionary. 
@@ -160,8 +174,15 @@ class OclcReport:
     def get_set_holdings_results(self) ->dict:
         return self.adds
 
-    def __str__(self):
-        pass
+    # Returns the unset or delete result tally. 
+    # return: dictionary of set tally results.
+    def get_delete_holdings_results(self) ->dict:
+        return self.dels
+
+    # Returns the bib record load tally. 
+    # return: dictionary of bib load results.
+    def get_delete_holdings_results(self) ->dict:
+        return self.bibs
 
 if __name__ == "__main__":
     import doctest

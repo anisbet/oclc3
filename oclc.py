@@ -241,11 +241,16 @@ def set_institution_holdings(
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
+    left_over_record_count = 0
     while oclc_numbers:
         number_str, status_code, json_response = ws.set_institution_holdings(oclc_numbers)
-        report.set_response(code=status_code, json_data=json_response, oclc_nums_sent=number_str, debug=debug)
+        if not report.set_response(code=status_code, json_data=json_response, debug=debug):
+            left_over_record_count = len(oclc_numbers)
+            msg = f"The web service stopped while setting holdings.\nThe following numbers weren't processed.\n{oclc_numbers}"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
     r_dict = report.get_set_holdings_results()
-    logger.logit(f"operation 'set' total records: {r_dict['total']}, {r_dict['success']} successful, and {r_dict['errors']} errors", include_timestamp=False)
+    logger.logit(f"operation 'set' total records: {r_dict['total']}, {r_dict['success']} successful, and {r_dict['errors'] + left_over_record_count} errors", include_timestamp=False)
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -262,11 +267,42 @@ def check_holdings(
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
+    left_over_record_count = 0
     while oclc_numbers:
         response = ws.check_oclc_numbers(oclc_numbers)
-        report.check_response(response, debug=debug)
+        if not report.check_response(response, debug=debug):
+            left_over_record_count = len(oclc_numbers)
+            msg = f"The web service stopped while checking numbers.\nThe following numbers weren't processed.\n{oclc_numbers}"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
     r_dict = report.get_check_results()
-    logger.logit(f"operation 'check' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
+    logger.logit(f"operation 'check' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors'] + left_over_record_count} errors", include_timestamp=False)
+
+# Checks list of OCLC control numbers as part of the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server.
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def delete_holdings(
+  oclc_numbers:list, 
+  configs:dict, 
+  logger:Log, 
+  debug:bool=False):
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    left_over_record_count = 0
+    while oclc_numbers:
+        response = ws.unset_institution_holdings(oclc_numbers)
+        if not report.delete_response(response, debug=debug):
+            left_over_record_count = len(oclc_numbers)
+            msg = f"The web service stopped while deleting holdings.\nThe following numbers weren't processed.\n{oclc_numbers}"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
+    r_dict = report.get_delete_holdings_results()
+    logger.logit(f"operation 'delete' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors'] + left_over_record_count} errors", include_timestamp=False)
 
 # Creates an institutional-specific bib record. 
 # param: list of records as lists of FLAT strings, where FLAT refers to 
@@ -278,13 +314,18 @@ def create_institution_specific_bib_record(
   debug:bool=False):
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
+    left_over_record_count = 0
     for flat_record in flat_records:
         xml_record = MarcXML(flat_record)
         response = ws.create_intitution_level_bib_record(record_xml)
         # TODO: implement below
-    #     report.create_bib_response(response, debug=debug)
-    # r_dict = report.get_bib_load_results()
-    # logger.logit(f"bibs created: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
+    #     if not report.create_bib_response(response, debug=debug):
+    # IF statement for errors.
+        # if the report.create_bib_response returns false it means errors.
+        # stop the loop and report the rest of the records that didn't get completed 
+    r_dict = report.get_bib_load_results()
+    logger.logit(f"bibs created: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
+
 
 # Main entry to the application if not testing.
 def main(argv):
