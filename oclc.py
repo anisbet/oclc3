@@ -233,7 +233,7 @@ def diff_deletes_adds(del_nums:list, add_nums:list) -> list:
 # param: Logger. 
 # param: debug True for debug information.
 # return: None
-def set_institution_holdings(
+def add_holdings(
   oclc_numbers:list, 
   configs:dict, 
   logger:Log, 
@@ -250,7 +250,7 @@ def set_institution_holdings(
             logger.logit(msg, level='error', include_timestamp=True)
             break
     r_dict = report.get_set_holdings_results()
-    logger.logit(f"operation 'set' total records: {r_dict['total']}, {r_dict['success']} successful, and {r_dict['errors'] + left_over_record_count} errors", include_timestamp=False)
+    print_tally('add / set', r_dict, logger)
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -276,7 +276,7 @@ def check_holdings(
             logger.logit(msg, level='error', include_timestamp=True)
             break
     r_dict = report.get_check_results()
-    logger.logit(f"operation 'check' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors'] + left_over_record_count} errors", include_timestamp=False)
+    print_tally('check', r_dict, logger)
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -302,12 +302,22 @@ def delete_holdings(
             logger.logit(msg, level='error', include_timestamp=True)
             break
     r_dict = report.get_delete_holdings_results()
-    logger.logit(f"operation 'delete' total records: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors'] + left_over_record_count} errors", include_timestamp=False)
+    print_tally('delete / unset', r_dict, logger)
+
+def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
+    msg =  f"operation '{action}' results.\n"
+    msg += f"          succeeded: {tally['success']}\n"
+    msg += f"           warnings: {tally['warnings']}\n"
+    msg += f"             errors: {tally['errors']}\n"
+    if remaining and remaining > 0:
+        msg += f"unprocessed records: {remainig}\n"
+    msg += f"      total records: {tally['total']}"
+    logger.logit(f"{msg}", include_timestamp=False)
 
 # Creates an institutional-specific bib record. 
 # param: list of records as lists of FLAT strings, where FLAT refers to 
 #  SirsiDynix's Symphony FLAT record format.
-def create_institution_specific_bib_record(
+def upload_bib_record(
   flat_records:list, 
   configs:dict, 
   logger:Log, 
@@ -318,13 +328,15 @@ def create_institution_specific_bib_record(
     for flat_record in flat_records:
         xml_record = MarcXML(flat_record)
         response = ws.create_intitution_level_bib_record(record_xml)
-        # TODO: implement below
-    #     if not report.create_bib_response(response, debug=debug):
-    # IF statement for errors.
+        if not report.create_bib_response(response, debug=debug):
+            left_over_record_count = len(flat_records)
+            msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
         # if the report.create_bib_response returns false it means errors.
         # stop the loop and report the rest of the records that didn't get completed 
     r_dict = report.get_bib_load_results()
-    logger.logit(f"bibs created: {r_dict['total']}, {r_dict['success']} successful, {r_dict['warnings']} warnings, and {r_dict['errors']} errors", include_timestamp=False)
+    print_tally('bib upload', r_dict, logger)
 
 
 # Main entry to the application if not testing.

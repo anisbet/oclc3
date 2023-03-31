@@ -111,8 +111,8 @@ Check the writing and reading of the 'master.lst'
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(u)
 ['12345', '101112']
->>> set_institution_holdings = o._read_num_file_('tests/t.set', 'set', False)
->>> o.write_master(path='tests/test_master.lst', add_list=set_institution_holdings, debug=False)
+>>> add_holdings = o._read_num_file_('tests/t.set', 'set', False)
+>>> o.write_master(path='tests/test_master.lst', add_list=add_holdings, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(s)
 ['12345', '6789']
@@ -128,7 +128,7 @@ Check for both set and unset
 ----------------------------
 
 
->>> o.write_master(path='tests/test_master.lst', add_list=set_institution_holdings, del_list=unset_institution_holdings, check_list=check_holdings, debug=False)
+>>> o.write_master(path='tests/test_master.lst', add_list=add_holdings, del_list=unset_institution_holdings, check_list=check_holdings, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(f"{c}")
 ['12345', '999877']
@@ -184,15 +184,23 @@ Send test OCLC numbers via the web service
 ?850940351 - success
 ?850940364 - success
 ?850940368 - success
-operation 'check' total records: 10, 10 successful, 0 warnings, and 0 errors
+operation 'check' results.
+          succeeded: 10
+           warnings: 0
+             errors: 0
+      total records: 10
 
 >>> test_add_records = [
-... 850939592,
-... 850939596,]
->>> o.set_institution_holdings(test_add_records, configs, logger, False)
-+850939592 - success
+... 850939596,
+... 850939592,]
+>>> o.add_holdings(test_add_records, configs, logger, False)
 +850939596 - success
-operation 'set' total records: 2, 2 successful, and 0 errors
++850939592 - success
+operation 'add / set' results.
+          succeeded: 2
+           warnings: 0
+             errors: 0
+      total records: 2
 
 
 Test that MARC21 XML records can be loaded
