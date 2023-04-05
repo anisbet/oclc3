@@ -119,6 +119,19 @@ class OclcReport:
       json_data:dict,
       debug:bool=False) ->bool:
         results = []
+        if code < 200 or code > 207:
+            msg = ''
+            try:
+                reported_error = f"OCLC said: {json_data['message']}"
+            except KeyError as ex:
+                reported_error = f"JSON: {json_data}"
+                msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
+            except TypeError:
+                reported_error = f"JSON: was empty!"
+                msg = f"set failed!"
+            self.logger.logit(msg, 'error')
+            self.adds['errors'] += 1
+            return False
         b_result= True
         if json_data:
             if debug:
@@ -154,15 +167,78 @@ class OclcReport:
         self.logger.logem(results)
         return b_result
 
-    # TODO: Finish me
-    def delete_response(self, code:int, json_data:dict, debug:bool=False):
-        pass
+    # Checks the results of the delete transaction.
+    def delete_response(self, 
+      code:int, 
+      json_data:dict,
+      debug:bool=False) ->bool:
+        results = []
+        # Check the HTTP code. Should be 207 but will accept 200 to 207
+        if code < 200 or code > 207:
+            msg = ''
+            try:
+                reported_error = f"OCLC said: {json_data['message']}"
+            except KeyError as ex:
+                reported_error = f"JSON: {json_data}"
+                msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
+            except TypeError:
+                reported_error = f"JSON: was empty!"
+                msg = f"delete failed!"
+            self.logger.logit(msg, 'error')
+            self.dels['errors'] += 1
+            return False
+        # Otherwise carry on parsing results.
+        results = []
+        b_result= True
+        if json_data:
+            if debug:
+                print(f"DEBUG: delete got JSON ===>{json_data}")
+            try:
+                entries = json_data['entries']
+                for entry in entries:
+                    title   = entry['title']
+                    old_num = entry['content']['requestedOclcNumber']
+                    new_num = entry['content']['currentOclcNumber']
+                    return_str = f"-{title}"
+                    if old_num == new_num:
+                        return_str += f" - success"
+                        self.adds['success'] += 1
+                    else:
+                        return_str += f" - updated to {new_num}"
+                        detail = entry['content']['detail']
+                        if detail:
+                            return_str += f", {detail}"
+                            self.adds['warnings'] += 1
+                    results.append(return_str)
+                    self.adds['total'] += 1
+            except KeyError as ex:
+                try:
+                    reported_error = f"OCLC said: {json_data['message']}"
+                except KeyError as ex:
+                    reported_error = f"JSON: {json_data}"
+                msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
+                self.logger.logit(msg, 'error')
+                self.adds['errors'] += 1
+                results.append(msg)
+                b_result = False
+        self.logger.logem(results)
+        return b_result
 
-    # TODO: Finish me
-    def create_bib_response(response:dict, debug:bool=False):
+
+    def create_bib_response(self, response:str, debug:bool=False):
         # Should see this in the response.
         # <controlfield tag="004">99999999999999999999999</controlfield>
-        pass
+        # TODO: use beautiful soup to convert the response. 
+        if not response:
+            self.bibs['errors'] += 1
+            return False
+        if debug:
+            print(f"DEBUG: bib upload: '{response}'")
+        if '<controlfield ' in response:
+            self.bibs['success'] += 1
+            return True
+        self.bibs['errors'] += 1
+        return False
 
     # Returns the checks result tally dictionary. 
     # return: dictionary of check tally results.
@@ -181,7 +257,7 @@ class OclcReport:
 
     # Returns the bib record load tally. 
     # return: dictionary of bib load results.
-    def get_delete_holdings_results(self) ->dict:
+    def get_bib_load_results(self) ->dict:
         return self.bibs
 
 if __name__ == "__main__":

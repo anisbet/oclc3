@@ -26,6 +26,7 @@ import re
 from oclcws import OclcService
 from oclcreport import OclcReport
 from log import Log
+from flat2marcxml import MarcXML
 
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
 MASTER_LIST_PATH = 'master.lst'
@@ -226,6 +227,23 @@ def diff_deletes_adds(del_nums:list, add_nums:list) -> list:
         ret_list.append(f"{sign}{num}")
     return ret_list
 
+# Prints a consistent tally message of how things worked out. 
+# param: action string, what type of service called this function. 
+# param: tally dictionary provided by the report object of parsed JSON results. 
+# param: Log object to write to the log file. 
+# param: Remaining records, count of records that didn't get processed. This 
+#   can be non-zero if the web service is interupted or you exceed quota of 
+#   web service calls.
+def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
+    msg =  f"operation '{action}' results.\n"
+    msg += f"          succeeded: {tally['success']}\n"
+    msg += f"           warnings: {tally['warnings']}\n"
+    msg += f"             errors: {tally['errors']}\n"
+    if remaining and remaining > 0:
+        msg += f"unprocessed records: {remainig}\n"
+    msg += f"      total records: {tally['total']}"
+    logger.logit(f"{msg}", include_timestamp=False)
+
 # Adds or sets the institutional holdings.
 # param: oclc number list of holdings to set.
 # param: config_yaml string path to the YAML file, containing connection and authentication for 
@@ -269,7 +287,7 @@ def check_holdings(
     report = OclcReport(logger=logger, debug=debug)
     left_over_record_count = 0
     while oclc_numbers:
-        response = ws.check_oclc_numbers(oclc_numbers)
+        response = ws.check_oclc_numbers(oclc_numbers, debug=debug)
         if not report.check_response(response, debug=debug):
             left_over_record_count = len(oclc_numbers)
             msg = f"The web service stopped while checking numbers.\nThe following numbers weren't processed.\n{oclc_numbers}"
@@ -295,7 +313,7 @@ def delete_holdings(
     report = OclcReport(logger=logger, debug=debug)
     left_over_record_count = 0
     while oclc_numbers:
-        response = ws.unset_institution_holdings(oclc_numbers)
+        response = ws.unset_institution_holdings(oclc_numbers, debug=debug)
         if not report.delete_response(response, debug=debug):
             left_over_record_count = len(oclc_numbers)
             msg = f"The web service stopped while deleting holdings.\nThe following numbers weren't processed.\n{oclc_numbers}"
@@ -303,16 +321,6 @@ def delete_holdings(
             break
     r_dict = report.get_delete_holdings_results()
     print_tally('delete / unset', r_dict, logger)
-
-def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
-    msg =  f"operation '{action}' results.\n"
-    msg += f"          succeeded: {tally['success']}\n"
-    msg += f"           warnings: {tally['warnings']}\n"
-    msg += f"             errors: {tally['errors']}\n"
-    if remaining and remaining > 0:
-        msg += f"unprocessed records: {remainig}\n"
-    msg += f"      total records: {tally['total']}"
-    logger.logit(f"{msg}", include_timestamp=False)
 
 # Creates an institutional-specific bib record. 
 # param: list of records as lists of FLAT strings, where FLAT refers to 
@@ -327,14 +335,13 @@ def upload_bib_record(
     left_over_record_count = 0
     for flat_record in flat_records:
         xml_record = MarcXML(flat_record)
-        response = ws.create_intitution_level_bib_record(record_xml)
+        # response = ws.create_intitution_level_bib_record(str(xml_record), debug=debug)
+        response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
         if not report.create_bib_response(response, debug=debug):
             left_over_record_count = len(flat_records)
             msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
             logger.logit(msg, level='error', include_timestamp=True)
             break
-        # if the report.create_bib_response returns false it means errors.
-        # stop the loop and report the rest of the records that didn't get completed 
     r_dict = report.get_bib_load_results()
     print_tally('bib upload', r_dict, logger)
 
@@ -345,7 +352,7 @@ def main(argv):
     parser = argparse.ArgumentParser(
         prog = 'oclc',
         usage='%(prog)s [options]' ,
-        description='Maintains holdings in OCLC WorldCat Search.',
+        description='Maintains holdings in OCLC WorldCat database.',
         epilog='See "-h" for help more information.'
     )
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
@@ -398,6 +405,7 @@ def main(argv):
     if args.unset:
         unset_holdings_lst = _read_num_file_(args.unset, 'unset', args.debug)
 
+    # Create a list of oclc numbers to check a list of holdings.
     if args.check:
         check_holdings = _read_num_file_(args.check, 'check', args.debug)
 

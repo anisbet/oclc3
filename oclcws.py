@@ -166,6 +166,8 @@ class OclcService:
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.get(url=url, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # self.logger.logit(f"response: '{response.json()}'")
         # {'entries': [
         #   {'title': '850939592', 
@@ -194,6 +196,50 @@ class OclcService:
         # return the list of remaining OCLC numbers and JSON results.
         return response.json()
 
+    # Add validation of Bib Record. 
+    # param: MARC 21 XML record. 
+    # param: debug flag. 
+    # return: XML response with valid record or error details.
+    def validate_add_bib_record(self, record_xml:str, debug:bool=False):
+        # curl -X 'POST' \
+        # 'https://worldcat.org/bib/validateAdd' \
+        # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
+        # -H 'Authorization: Bearer tk_xPfeUeo2opMgUSg6ULGk2z5zZEfqxq5Wcal4' \
+        # -H 'Content-Type: application/vnd.oclc.marc21+xml' \
+        # -d '<?xml version="1.0" encoding="UTF-8"?> <record xmlns="http://www.loc.gov/MARC21/slim">
+        #     <leader>00000nam a2200000 a 4500</leader>
+        #     <controlfield tag="008">120827s2012    nyua          000 0 eng d</controlfield>
+        #     <datafield tag="010" ind1=" " ind2=" ">
+        #         <subfield code="a">   63011276 </subfield>
+        #     </datafield>
+        #     <datafield tag="040" ind1=" " ind2=" ">
+        #         <subfield code="a">OCWMS</subfield>
+        #         <subfield code="b">eng</subfield>
+        #         <subfield code="c">OCPSB</subfield>
+        #     </datafield>
+        #     <datafield tag="100" ind1="0" ind2=" ">
+        #         <subfield code="a">OCLC Developer Network</subfield>
+        #     </datafield>
+        #     <datafield tag="245" ind1="1" ind2="0">
+        #         <subfield code="a">Test Record</subfield>
+        #     </datafield>
+        #     <datafield tag="500" ind1=" " ind2=" ">
+        #         <subfield code="a">FOR OCLC DEVELOPER NETWORK DOCUMENTATION</subfield>
+        #     </datafield>
+        # </record>        
+        # '
+        access_token = self._get_access_token_()
+        headers = {
+            'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
+            "Authorization": f"Bearer {access_token}",
+            'Content-Type': 'application/vnd.oclc.marc21+xml'
+        }
+        url = f"https://worldcat.org/bib/validateAdd"
+        if debug:
+            print(f"DEBUG: url={url}")
+        response = requests.post(url=url, data=record_xml, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
 
     # Used to create a bibliographic record specific to your institution.
     # param: record in MARC21 XML. 
@@ -203,7 +249,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_intitution_level_bib_record(self, record_xml:str, debug:bool=False) -> str:
+    def create_intitution_level_bib_record(self, record_xml:str, debug:bool=False):
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -214,6 +260,8 @@ class OclcService:
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.post(url=url, data=record_xml, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # curl -X 'POST' \
         # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
@@ -241,7 +289,7 @@ class OclcService:
         #     </datafield>
         # </record>        
         # '
-        return response.content()
+        return response
 
     # Used to create a bibliographic with holdings for a specific branch of 
     # your institution.
@@ -264,6 +312,8 @@ class OclcService:
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.post(url=url, data=record_xml, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # curl -X 'POST' \
         # 'https://worldcat.org/lbd/data?inst=128807&instSymbol=OCPSB&holdingLibraryCode=MAIN' \
         # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
@@ -288,7 +338,7 @@ class OclcService:
         #     </datafield>
         # </record>                                               
         # '
-        return response.content()
+        return response.content
 
     # Used to update a bibliographic with holdings at a specific branch.
     # param: record in XML. 
@@ -309,6 +359,8 @@ class OclcService:
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.put(url=url, data=record_xml, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # curl -X 'PUT' \
         # 'https://worldcat.org/bib/data?inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
@@ -353,7 +405,7 @@ class OclcService:
         #                 <subfield code="a">DLC</subfield>
         #   ... 
         # and a HTTP code of 200
-        return response.content()
+        return response.content
 
     # Create / set institutional holdings. Used to let OCLC know a library has a title. 
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
@@ -371,6 +423,8 @@ class OclcService:
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.post(url=url, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # curl -X 'POST' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=777890&inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+json' \
@@ -401,6 +455,8 @@ class OclcService:
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.delete(url=url, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # curl -X 'DELETE' \
         # 'https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB' \
         # -H 'accept: application/atom+json' \

@@ -29,13 +29,14 @@ import re
 #   https://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd
 
 class MarcXML:
-    def __init__(self, flat:list, namespace:str='slim'):
+    def __init__(self, flat:list, namespace:str='slim', collection:bool=False, branch:str=''):
         new_doc = re.compile(r'\*\*\* DOCUMENT BOUNDARY \*\*\*')
         self.xml = []
+        self.branch = branch
         slim = ''
-        slim_ns = """xmlns="http://www.loc.gov/MARC21/slim" """
+        slim_ns = f" xmlns=\"http://www.loc.gov/MARC21/slim\""
         std = 'marc:'
-        std_ns = """xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd" """
+        std_ns = f" xmlns:marc=\"http://www.loc.gov/MARC21/slim\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd\""
         self.prefix = slim
         self.ns = slim_ns
         if namespace == 'standard':
@@ -43,6 +44,10 @@ class MarcXML:
             self.ns = std_ns
         # Add declaration.
         self.xml.append(f"<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+        if collection:
+            self.xml.append(f"<{self.prefix}collection{self.ns}>")
+            # If collection is used name sure each of the records in the collection don't redefine the namespace.
+            self.ns = ''
         record = []
         while flat:
             line = flat.pop()
@@ -56,6 +61,8 @@ class MarcXML:
         if record:
             record.reverse()
             self.xml.append(self._convert_(record))
+        if collection:
+            self.xml.append(f"</{self.prefix}collection>")
 
     # Gets a string version of the entry's tag, like '000' or '035'.
     # param: str of the flat entry from the flat marc data.
@@ -114,21 +121,31 @@ class MarcXML:
     # return: list of XML strings.
     def _convert_(self, entries:list) ->list:
         record = []
-        if entries:
-            record.append(f"<record {self.ns}>")
+        record_dict = {}
+        if self.branch:
+            record_dict['049'] = f"<{self.prefix}datafield tag=\"049\" ind1=\" \" ind2=\" \">\n  <{self.prefix}subfield code=\"a\">{self.branch}</{self.prefix}subfield>\n</{self.prefix}datafield>"
+        
         for entry in entries:
             # Sirsi Dynix flat files contain a 'FORM=blah-blah' which is not valid MARC.
             if re.match(r'^FORM*', entry):
                 continue
             tag = self._get_tag_(entry)
             if tag == '000':
-                record.append(f"<{self.prefix}leader>{self._get_control_field_data_(entry, False)}</{self.prefix}leader>")
+                tag_value = f"<{self.prefix}leader>{self._get_control_field_data_(entry, False)}</{self.prefix}leader>"
             # Any tag below '008' is a control field and doesn't have indicators or subfields.
             elif int(tag) <= 8:
-                record.append(f"<{self.prefix}controlfield tag=\"{tag}\">{self._get_control_field_data_(entry, False)}</{self.prefix}controlfield>")
+                tag_value = f"<{self.prefix}controlfield tag=\"{tag}\">{self._get_control_field_data_(entry, False)}</{self.prefix}controlfield>"
             else:
-                record.append(self._get_subfields_(entry))
+                tag_value = self._get_subfields_(entry)
+            if f"{tag}" in record_dict:
+                record_dict[f"{tag}"] += tag_value
+            else:
+                record_dict[f"{tag}"] = tag_value
+
         if entries:
+            record.append(f"<{self.prefix}record{self.ns}>")
+            for i in sorted(record_dict.keys()):
+                record.append(record_dict[i])
             record.append(f"</{self.prefix}record>")
         return record
 
@@ -144,6 +161,13 @@ class MarcXML:
         a = []
         self._flatten_(a, self.xml)
         return '\n'.join(a)
+
+    # Converts the XML content into byte a byte-string.
+    def as_bytes(self):
+        a = []
+        self._flatten_(a, self.xml)
+        xml_content_str = '\n'.join(a)
+        return bytes(xml_content_str, 'utf-8')
 
 
 if __name__ == "__main__":

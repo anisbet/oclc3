@@ -224,7 +224,7 @@ Test that MARC21 XML records can be loaded
 ... ".040.   |aTEFMT|cTEFMT|dTEF|dBKX|dEHH|dNYP|dUtOrBLW"])
 >>> print(marc_slim)
 <?xml version="1.0" encoding="UTF-8"?>
-<record xmlns="http://www.loc.gov/MARC21/slim" >
+<record xmlns="http://www.loc.gov/MARC21/slim">
 <leader>jm a0c a</leader>
 <controlfield tag="001">ocn769144454</controlfield>
 <controlfield tag="003">OCoLC</controlfield>
@@ -260,3 +260,22 @@ Test that MARC21 XML records can be loaded
 </datafield>
 </record>
 
+
+
+
+Test uploading MARC21 XML record
+--------------------------------
+
+
+>>> flat_record = [
+... "*** DOCUMENT BOUNDARY ***",
+... "FORM=MUSIC",
+... ".000. |ajm a0c a",
+... ".008. |a111222s2012    nyu||n|j|         | eng d",
+... ".010.   |a   63011276 ",
+... ".040.   |aOCWMS|beng|cOCPSB",
+... ".100. 0 |aOCLC Developer Network",
+... ".245. 10|aTest Record",
+... ".500.   |aFOR OCLC DEVELOPER NETWORK DOCUMENTATION"]
+>>> marcRecord = MarcXML(flat_record, collection=True)
+>>> o.upload_bib_record([flat_record], configs, logger, debug=True)

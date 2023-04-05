@@ -99,11 +99,37 @@ Tests for web service responses, but also provides reporting.
 True
 
 
+Test failed condition on set
+----------------------------
+
+>>> empty_set_response = ''
+>>> report.set_response(404, empty_set_response)
+False
+
+
 Test the checks dictionary for tallies
 --------------------------------------
 
 >>> report.get_check_results()
 {'total': 3, 'success': 1, 'warnings': 1, 'errors': 1}
+
+
+
+
+Test the delete response
+------------------------
+
+>>> delete_response = check_response
+>>> report = OclcReport(logger=logger)
+>>> report.delete_response(207, delete_response)
+-12345 - success
+-67890 - updated to 6777790, Record found.
+-999999999 - success
+True
+
+>>> delete_response = ''
+>>> report.delete_response(404, delete_response)
+False
 
 
 
@@ -129,3 +155,6 @@ Test the create bib response method
 ...    <subfield code="a">OCWMS</subfield>
 ...  </datafield>
 ... </record>"""
+>>> report = OclcReport(logger=logger)
+>>> report.create_bib_response(response_rec)
+True
