@@ -281,5 +281,9 @@ Test uploading MARC21 XML record
 ... ".100. 0 |aOCLC Developer Network",
 ... ".245. 10|aTest Record",
 ... ".500.   |aFOR OCLC DEVELOPER NETWORK DOCUMENTATION"]
->>> marcRecord = MarcXML(flat_record, collection=True)
->>> o.upload_bib_record([flat_record], configs, logger, debug=True)
+>>> o.upload_bib_record([flat_record], configs, logger, debug=False)
+operation 'bib upload' results.
+          succeeded: 1
+           warnings: 0
+             errors: 0
+      total records: 0

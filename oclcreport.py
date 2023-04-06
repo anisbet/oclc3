@@ -225,7 +225,7 @@ class OclcReport:
         return b_result
 
 
-    def create_bib_response(self, response:str, debug:bool=False):
+    def create_bib_response(self, response, debug:bool=False):
         # Should see this in the response.
         # <controlfield tag="004">99999999999999999999999</controlfield>
         # TODO: use beautiful soup to convert the response. 

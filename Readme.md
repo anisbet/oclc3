@@ -174,7 +174,7 @@ Random text on a line   # Ignored.
 1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
 2) Once logged in select the ```Analytics``` tab.
 3) Select Collection Evaluation and click the ```My Library``` button.
-4) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least 1.5 hours.
+4) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least **1.5+ hours**.
 5) Download the zipped XSL file from the ```My Files``` menu on the left of the page.
 6) Use ```pandas``` or ```excel``` to open and analyse. Expect trouble because there are half a million entries, some with columns of hundreds of characters.
 **Hint**:

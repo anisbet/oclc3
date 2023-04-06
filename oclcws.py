@@ -37,6 +37,7 @@ class OclcService:
         self.secret      = configs['service']['secret']
         self.inst_id     = configs['service']['registryId']
         self.inst_symbol = configs['service']['institutionalSymbol']
+        self.branch      = configs['service']['branchName']
         self.logger      = logger
         self.debug       = debug
         if len(self.client_id) > 0 and len(self.secret) > 0:
@@ -249,7 +250,7 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_intitution_level_bib_record(self, record_xml:str, debug:bool=False):
+    def create_intitution_level_bib_record(self, record_xml, debug:bool=False):
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
@@ -289,7 +290,7 @@ class OclcService:
         #     </datafield>
         # </record>        
         # '
-        return response
+        return str(response.content)
 
     # Used to create a bibliographic with holdings for a specific branch of 
     # your institution.
@@ -301,14 +302,14 @@ class OclcService:
     #     <code type="application">WS-403</code>
     #     <message>The institution identifier provided does not match the WSKey credentials.</message>
     # </error>
-    def create_branch_level_bib_record(self, record_xml:str, branch:str='MAIN', debug:bool=False) -> str:
+    def create_branch_level_bib_record(self, record_xml:str, debug:bool=False) -> str:
         access_token = self._get_access_token_()
         headers = {
             'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
             "Authorization": f"Bearer {access_token}",
             'Content-Type': 'application/vnd.oclc.marc21+xml'
         }
-        url = f"https://worldcat.org/lbd/data?inst={self.inst_id}&instSymbol={self.inst_symbol}&holdingLibraryCode=MAIN"
+        url = f"https://worldcat.org/lbd/data?inst={self.inst_id}&instSymbol={self.inst_symbol}&holdingLibraryCode={self.branch}"
         if debug:
             print(f"DEBUG: url={url}")
         response = requests.post(url=url, data=record_xml, headers=headers)

@@ -30,7 +30,10 @@ from flat2marcxml import MarcXML
 
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
 MASTER_LIST_PATH = 'master.lst'
+# Runs doctests
 TEST = True
+# Runs command line.
+# TEST = False
 
 # OCLC number search regexes
 OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
@@ -329,13 +332,19 @@ def upload_bib_record(
   configs:dict, 
   logger:Log, 
   debug:bool=False):
+    # TODO: This request throws an error on the test sandbox. I have submitted a query
+    # to OCLC to determine why, but have not heard back yet. April 06, 2023.
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
     left_over_record_count = 0
     for flat_record in flat_records:
         xml_record = MarcXML(flat_record)
+        if debug:
+            print(f"DEBUG HERE xml: {xml_record}")
         response = ws.create_intitution_level_bib_record(xml_record.as_bytes(), debug=debug)
         # response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
+        if debug:
+            print(f"DEBUG HERE response: {response}")
         if not report.create_bib_response(response, debug=debug):
             left_over_record_count = len(flat_records)
             msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
