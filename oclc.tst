@@ -92,14 +92,18 @@ Given file 't.set' contains the following values:
  99999
  2990
 -101112
++(OCoLC) 123456
+(OCoLC) 7777777
+-(OCoLC) 123456
 ?999877
+?(OCoLC) 88888888
 
-    >>> o._read_num_file_('tests/t.set', 'set', False)
-    ['12345', '6789']
-    >>> o._read_num_file_('tests/t.set', 'unset', False)
-    ['12345', '101112']
-    >>> o._read_num_file_('tests/t.set', 'check', False)
-    ['12345', '999877']
+>>> o._read_num_file_('tests/t.set', 'set', False)
+['12345', '6789', '123456', '7777777']
+>>> o._read_num_file_('tests/t.set', 'unset', False)
+['12345', '101112', '7777777', '123456']
+>>> o._read_num_file_('tests/t.set', 'check', False)
+['12345', '7777777', '999877']
 
 
 Check the writing and reading of the 'master.lst'
@@ -110,17 +114,17 @@ Check the writing and reading of the 'master.lst'
 >>> o.write_master(path='tests/test_master.lst', del_list=unset_institution_holdings, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(u)
-['12345', '101112']
+['12345', '101112', '7777777', '123456']
 >>> add_holdings = o._read_num_file_('tests/t.set', 'set', False)
 >>> o.write_master(path='tests/test_master.lst', add_list=add_holdings, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(s)
-['12345', '6789']
+['12345', '6789', '123456', '7777777']
 >>> check_holdings = o._read_num_file_('tests/t.set', 'check', False)
 >>> o.write_master(path='tests/test_master.lst', check_list=check_holdings, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(c)
-['12345', '999877']
+['12345', '7777777', '999877']
 
 
 
@@ -131,11 +135,11 @@ Check for both set and unset
 >>> o.write_master(path='tests/test_master.lst', add_list=add_holdings, del_list=unset_institution_holdings, check_list=check_holdings, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(f"{c}")
-['12345', '999877']
+['12345', '7777777', '999877']
 >>> print(f"{u}")
-['12345', '101112']
+['12345', '101112', '7777777', '123456']
 >>> print(f"{s}")
-['12345', '6789']
+['12345', '6789', '123456', '7777777']
 >>> master = ['-1234', '+1111', ' 2222', '?3333']
 >>> o.write_master(path='tests/test_master.lst', master_list=master, debug=False)
 >>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)

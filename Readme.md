@@ -136,12 +136,12 @@ To remediate this expense and improve customer service ```oclc3``` can run a rec
 
 ## Notes on OCLC Number Lists
 The specification for a valid list of OCLC numbers is as follows.
-* An OCLC number is a string of 4 or more digits that together satisfy the definition of an integer, that is, no float values, no number with '(OCoLC)' prefixes etc.
+* An OCLC number is a string of 4 or more digits that together satisfy the definition of an integer, that is, no float values.
 * A valid file contains one or more OCLC numbers, one per line.
-* A valid OCLC number is an integer of 4 or more digits and may start with a `+` or `-`.
-* Any number prefixed with `+`, like `+9974113 *` indicates the record should be added or set as a holding. If you are using `--unset` this number will be ignored.
-* Any line that starts with `-`, like `-2239776 *` means delete this record when the `--unset` switch is used, otherwise this line is ignored.
-* Any line that start with a space ` `, like ` 225716 *` will be ignored when using `--set` or `--unset`.
+* A valid OCLC number is an integer of 4 or more digits and may start with a `+`, `?`, or `-`.
+* Any number prefixed with `+`, like `+9974113 *`, or `+(OCoLC)9974113 *` indicates the record should be added or set as a holding. If you are using `--unset` this number will be ignored.
+* Any line that starts with `-`, like `-2239776 *` or `-(OCoLC)12345` means delete this record when the `--unset` switch is used, otherwise this line is ignored.
+* Any line that start with a space ` `, like ` 225716 *`, or ` (OCoLC)123456` will be ignored when using `--set` or `--unset`.
 * A `master.lst` file is written to the local directory which contains the instructions that were executed for each OCLC number of either `--set`, `--unset`, `--local`, or `--remote`.
 
 While this sounds complicated, there are some simple rules.
@@ -157,7 +157,10 @@ While this sounds complicated, there are some simple rules.
 -7756632                # Delete this record if '--unset' is used.
 7756632                 # Deleted if '--unset' is used, added if using '--set' or `--local`.
  654321 any text        # This will be ignored in all cases.
-(OCoLC)7756632  blah    # Ignored.
+(OCoLC)7756632  blah    # Set or unset the number '7756632' depending on flag.
+-(OCoLC)7756632  blah   # Unset number '7756632' if '--unset' is used, ignored otherwise.
+(OCoLC)7756632  blah    # Set or unset the number '7756632' depending on switch.
+?(OCoLC)7756632  blah   # Check number '7756632'.
 Random text on a line   # Ignored.
 ```
 

@@ -32,6 +32,11 @@ from flat2marcxml import MarcXML
 MASTER_LIST_PATH = 'master.lst'
 TEST = True
 
+# OCLC number search regexes
+OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
+OCLC_DEL_MATCHER = re.compile(r'^[\-]?(\d|\(OCoLC\))?\d+\b(?!\.)')
+OCLC_CHK_MATCHER = re.compile(r'^[?]?(\d|\(OCoLC\))?\d+\b(?!\.)')
+NUM_MATCHER  = re.compile(r'\d+')
 
 # Loads the yaml file for configs.
 # param: path of the yaml file. 
@@ -54,34 +59,28 @@ def _load_yaml_(yaml_path:str) -> dict:
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
 def _find_set_(line):
-    regex = re.compile(r'^[+]?\d{4,14}\b(?!\.)')
-    match = regex.match(line)
-    if match:
-        if match.group(0).startswith('+'):
-            return match.group(0)[1:]
-        return match.group(0)
+    matches = re.search(OCLC_ADD_MATCHER, line)
+    if matches:
+        num_match = re.search(NUM_MATCHER, line)
+        return num_match[0]
 
 # Find unset values in a string. 
 # param: line str to search. 
 # return: The matching OCLC number or nothing if no match.
 def _find_unset_(line):
-    regex = re.compile(r'^[-]?\d{4,14}\b(?!\.)')
-    match = regex.match(line)
-    if match:
-        if match.group(0).startswith('-'):
-            return match.group(0)[1:]
-        return match.group(0)
+    matches = re.search(OCLC_DEL_MATCHER, line)
+    if matches:
+        num_match = re.search(NUM_MATCHER, line)
+        return num_match[0]
 
 # Find oclc numbers that need checking. 
 # param: line str from OCLC number list file. 
 # return: The matching OCLC number or nothing if no match.
 def _find_check_(line):
-    regex = re.compile(r'^[?]?\d{4,14}\b(?!\.)')
-    match = regex.match(line)
-    if match:
-        if match.group(0).startswith('?'):
-            return match.group(0)[1:]
-        return match.group(0)
+    matches = re.search(OCLC_CHK_MATCHER, line)
+    if matches:
+        num_match = re.search(NUM_MATCHER, line)
+        return num_match[0]
 
 # Read OCLC numbers from a given file. OCLC numbers must appear 
 # one-per-line and can use the following syntax. OCLC numbers in lines must:
@@ -335,8 +334,8 @@ def upload_bib_record(
     left_over_record_count = 0
     for flat_record in flat_records:
         xml_record = MarcXML(flat_record)
-        # response = ws.create_intitution_level_bib_record(str(xml_record), debug=debug)
-        response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
+        response = ws.create_intitution_level_bib_record(xml_record.as_bytes(), debug=debug)
+        # response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
         if not report.create_bib_response(response, debug=debug):
             left_over_record_count = len(flat_records)
             msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
