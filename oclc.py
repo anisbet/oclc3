@@ -31,9 +31,9 @@ from flat2marcxml import MarcXML
 # Master list of OCLC numbers and instructions produced with --local and --remote flags.
 MASTER_LIST_PATH = 'master.lst'
 # Runs doctests
-TEST = True
+# TEST = True
 # Runs command line.
-# TEST = False
+TEST = False
 
 # OCLC number search regexes
 OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
@@ -61,7 +61,7 @@ def _load_yaml_(yaml_path:str) -> dict:
 # Find set values in a string. 
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
-def _find_set_(line):
+def _find_set_(line:str):
     matches = re.search(OCLC_ADD_MATCHER, line)
     if matches:
         num_match = re.search(NUM_MATCHER, line)
@@ -105,24 +105,25 @@ def _find_check_(line):
 def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
     nums = []
     if debug:
-        print(f"Running {set_unset}")
+        print(f"Reading {num_file}")
     if not exists(num_file):
         sys.stderr.write(f"*error, no such file: '{num_file}'.\n")
         return nums
 
     # Read in a list of OCLC numbers to set.
     with open(num_file, encoding='utf8', mode='r') as f:
-        for line in f:
+        for l in f:
+            line = l.rstrip()
             if set_unset == 'set':
-                num = _find_set_(line.rstrip())
+                num = _find_set_(line)
                 if num:
                     nums.append(num)
             elif set_unset == 'unset':
-                num = _find_unset_(line.rstrip())
+                num = _find_unset_(line)
                 if num:
                     nums.append(num)
             elif set_unset == 'check':
-                num = _find_check_(line.rstrip())
+                num = _find_check_(line)
                 if num:
                     nums.append(num)
             else: # neither 'set', 'check', nor 'unset'
@@ -150,21 +151,13 @@ def write_master(
     with open(path, encoding='utf8', mode='w') as f:
         if master_list:
             for holding in master_list:
-                if debug:
-                    print(f"{holding}")
                 f.write(f"{holding}\n")
         else:
             for holding in add_list:
-                if debug:
-                    print(f"+{holding}")
                 f.write(f"+{holding}\n")
             for holding in del_list:
-                if debug:
-                    print(f"-{holding}")
                 f.write(f"-{holding}\n")
             for holding in check_list:
-                if debug:
-                    print(f"?{holding}")
                 f.write(f"?{holding}\n")
     f.close()
 
@@ -183,47 +176,55 @@ def read_master(
         if debug:
             print(f"checking {path} for OCLC numbers and processing instructions.")
         with open(path, encoding='utf-8', mode='r') as f:
-            temp = f.readlines()
-        f.close()
-        if debug:
-            print(f"read {len(temp)} lines from {path}")
-        # Clear in case used from another switch.
-        add_list = []
-        del_list = []
-        check_list = []
-        for number in temp:
-            number = number.rstrip()
-            if number.startswith('+'):
-                add_list.append(number[1:])
-            elif number.startswith('-'):
-                del_list.append(number[1:])
-            elif number.startswith('?'):
-                check_list.append(number[1:])
-            else:
-                continue
-        if debug:
-            print(f"first 5 add records: {add_list[:5]}")
-            print(f"first 5 del records: {del_list[:5]}")
-            print(f"first 5 chk records: {check_list[:5]}")
+            # Clear in case used from another switch.
+            add_list = []
+            del_list = []
+            check_list = []
+            skipped = 0
+            for temp in f:
+                number = temp.rstrip()  
+                if number.startswith('+'):
+                    add_list.append(number[1:])
+                elif number.startswith('-'):
+                    del_list.append(number[1:])
+                elif number.startswith('?'):
+                    check_list.append(number[1:])
+                else:
+                    skipped += 1
+                    continue
+            if debug:
+                print(f"first 5 add records: {add_list[:5]}")
+                print(f"first 5 del records: {del_list[:5]}")
+                print(f"first 5 chk records: {check_list[:5]}")
+                print(f"skipped {skipped} records with nothing to do.")
     return add_list, del_list, check_list
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.
 # param:  List of oclc numbers to delete or unset.
 # param:  List of oclc numbers to set or add. 
-def diff_deletes_adds(del_nums:list, add_nums:list) -> list:
+def diff_deletes_adds(del_nums:list, add_nums:list, debug:bool=False) -> list:
     # Store uniq nums and sign.
     ret_dict = {}
+    p_count = 0
+    total   = 0
     for oclcnum in del_nums:
-        if oclcnum in add_nums:
-            ret_dict[oclcnum] = " "
-        else:
-            ret_dict[oclcnum] = "-"
+        ret_dict[oclcnum] = "-"
+        p_count += 1
+    if debug :
+        sys.stderr.write(f"total deletes: {p_count}\n")
+    total += p_count
+    p_count = 0
     for libnum in add_nums:
-        if libnum in del_nums:
+        if libnum in ret_dict:
             ret_dict[libnum] = " "
         else:
             ret_dict[libnum] = "+"
+        p_count += 1
+    total += p_count
+    if debug :
+        sys.stderr.write(f"total adds   : {p_count}\n")
+        sys.stderr.write(f"total        : {total}\n")
     ret_list = []
     for (num, sign) in ret_dict.items():
         ret_list.append(f"{sign}{num}")
@@ -387,6 +388,7 @@ def main(argv):
         sys.exit()
     
     if args.debug:
+        print(f"== vars ==")
         print(f"check: '{args.check}'")
         print(f"debug: '{args.debug}'")
         print(f"local: '{args.local}'")
@@ -396,6 +398,7 @@ def main(argv):
         print(f"update: '{args.update}'")
         print(f"xml records: '{args.xml_records}'")
         print(f"yaml: '{args.yaml}'")
+        print(f"== vars ==\n")
 
     # Upload XML MARC21 records.
     if args.xml_records:
@@ -422,17 +425,32 @@ def main(argv):
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
         set_holdings_lst.clear()
+        if args.debug:
+            sys.stderr.write(f"DEBUG: starting to read local holdings.\n")
         set_holdings_lst = _read_num_file_(args.local, 'set', args.debug)
+        if args.debug:
+            sys.stderr.write(f"DEBUG: done.\n")
         # Read the report of remote holdings (holdings at OCLC)
         unset_holdings_lst.clear()
+        if args.debug:
+            sys.stderr.write(f"DEBUG: starting to read OCLC holdings.\n")
         unset_holdings_lst = _read_num_file_(args.remote, 'unset', args.debug)
+        if args.debug:
+            sys.stderr.write(f"DEBUG: done.\n")
         # Create a 'master' list that indicates with are to be removed 
         # and which are to be added, then exit. The script can then be re-run
         # using the same file for both the '--set' and '--unset' flags to run
         # the master. Check the list first before beginning.
-        master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst)
+        if args.debug:
+            sys.stderr.write(f"DEBUG: compiling difference of holdings.\n")
+        master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst, debug=args.debug)
+        if args.debug:
+            sys.stderr.write(f"DEBUG: done.\n")
+            sys.stderr.write(f"DEBUG: writing {MASTER_LIST_PATH}.\n")
         write_master(MASTER_LIST_PATH, master_list=master_list)
-        read_master(MASTER_LIST_PATH, debug=args.debug)
+        if args.debug:
+            sys.stderr.write(f"DEBUG: done.\n")
+        # read_master(MASTER_LIST_PATH, debug=args.debug)
 
         
     # Call the web service with the appropriate list, and capture results.

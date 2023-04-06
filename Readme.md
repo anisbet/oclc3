@@ -175,13 +175,26 @@ Random text on a line   # Ignored.
 2) Once logged in select the ```Analytics``` tab.
 3) Select Collection Evaluation and click the ```My Library``` button.
 4) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least **1.5+ hours**.
-5) Download the zipped XSL file from the ```My Files``` menu on the left of the page.
-6) Use ```pandas``` or ```excel``` to open and analyse. Expect trouble because there are half a million entries, some with columns of hundreds of characters.
+5) Download the zipped XSL file from the ```My Files``` menu on the left of the page, and unzip.
+6) You can use ```pandas``` or ```excel``` to open and analyse, but I have more luck with `OpenOffice`.
 **Hint**:
-   1) Open the ```CSV``` in ```OpenOffice``` sheets as a fixed width document.
-   2) Save as ```full_cat.csv```.
-   3) Use ```cat full_cat.csv | awk -F'""' '{print $4}' >oclcnumbers.txt``` to capture all the OCLC numbers.
-1) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
+   1) Open the ```xls``` in ```OpenOffice``` sheets as a **fixed width** document.
+   2) Save as `csv` to file ```full_cat.csv```.
+   3) Use awk to process: ```cat full_cat.csv | awk -F'""' '{print $1}' | awk -F'", "' '{print $2}' | awk -F'")' '{print $1}' > oclcnumbers.txt``` to capture all the OCLC numbers.
+      1) **Explanation**: awk 1 splits the file on double-double-quotes, and outputs the first field which is a `HYPERLINK`.
+      2) Awk 2 takes the `HYPERLINK` data and further splits that on the only remaining quotes of the `url` and oclc number. It outputs a line that starts with a the oclc number and ends in `")`.
+      3) Awk 3 further splits on the afore-mentioned `")`, and outputs field 1.
+   4) To check ```wc -l full_cat.csv``` compared with ```wc -l oclcnumbers.txt```.
+   5) To check that all the lines have values use ```cat oclcnumbers.txt | pipe.pl -zc0 | wc -l```. It should show the same number of lines as the `csv`.
+7) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
+8) Use `oclc.py` to create a master list by using `--remote=oclcnumbers.txt` and `--local=librarynumbers.txt`. This will create a master list (`master.lst`) in the current directory. Examine the results and see the delta of OCLC and your library. 
+   1) Records that OCLC are missing are marked with `+`.
+   2) Records that OCLC has but your library no longer has are marked with `-`.
+   3) Records that don't need attention start with a space (` `).
+9) **TODO: confirm!** Use the `master.lst` with the `--update` flag and `oclc.py` will use these instructions to operate the OCLC web service. The order of operations are as follows.
+   1)  Checks
+   2)  Deletes
+   3)  Adds
 
 ## Library Records
 ```bash
