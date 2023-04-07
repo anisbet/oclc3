@@ -75,14 +75,14 @@ class OclcReport:
                     return_str = f"?{title}"
                     if found:
                         if old_num == new_num:
-                            return_str += f" - valid OCLC number"
+                            return_str += f" - Record confirmed"
                             self.checks['success'] += 1
                         else:
                             return_str += f" - updated to {new_num}"
                             self.checks['warnings'] += 1
                     else:
                         detail = entry['content']['detail']
-                        return_str += f" - error not found message: {detail}"
+                        return_str += f" - {detail}"
                         self.checks['errors'] += 1
                     results.append(return_str)
                     self.checks['total'] += 1

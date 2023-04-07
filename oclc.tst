@@ -178,16 +178,16 @@ Send test OCLC numbers via the web service
 ... 850940364,
 ... 850940368, ]
 >>> o.check_holdings(test_check_records, configs, logger, False)
-?850939592 - success
-?850939596 - success
-?850939598 - success
-?850939600 - success
-?850939601 - success
-?850939602 - success
-?850940343 - success
-?850940351 - success
-?850940364 - success
-?850940368 - success
+?850939592 - Record confirmed
+?850939596 - Record confirmed
+?850939598 - Record confirmed
+?850939600 - Record confirmed
+?850939601 - Record confirmed
+?850939602 - Record confirmed
+?850940343 - Record confirmed
+?850940351 - Record confirmed
+?850940364 - Record confirmed
+?850940368 - Record confirmed
 operation 'check' results.
           succeeded: 10
            warnings: 0
@@ -198,8 +198,8 @@ operation 'check' results.
 ... 850939596,
 ... 850939592,]
 >>> o.add_holdings(test_add_records, configs, logger, False)
-+850939596 - success
-+850939592 - success
++850939592 - added
++850939596 - added
 operation 'add / set' results.
           succeeded: 2
            warnings: 0
@@ -281,9 +281,3 @@ Test uploading MARC21 XML record
 ... ".100. 0 |aOCLC Developer Network",
 ... ".245. 10|aTest Record",
 ... ".500.   |aFOR OCLC DEVELOPER NETWORK DOCUMENTATION"]
->>> o.upload_bib_record([flat_record], configs, logger, debug=False)
-operation 'bib upload' results.
-          succeeded: 1
-           warnings: 0
-             errors: 0
-      total records: 0

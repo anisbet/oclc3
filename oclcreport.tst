@@ -92,10 +92,10 @@ Tests for web service responses, but also provides reporting.
 ... ]
 ... }""")
 >>> report = OclcReport(logger=logger)
->>> report.check_response(check_response)
-?12345 - success
+>>> report.check_response(200, check_response)
+?12345 - Record confirmed
 ?67890 - updated to 6777790
-?999999999 - error not found message: Record not found.
+?999999999 - Record not found.
 True
 
 
@@ -107,24 +107,15 @@ Test failed condition on set
 False
 
 
-Test the checks dictionary for tallies
---------------------------------------
-
->>> report.get_check_results()
-{'total': 3, 'success': 1, 'warnings': 1, 'errors': 1}
-
-
-
-
 Test the delete response
 ------------------------
 
 >>> delete_response = check_response
 >>> report = OclcReport(logger=logger)
 >>> report.delete_response(207, delete_response)
--12345 - success
+-12345 - deleted
 -67890 - updated to 6777790, Record found.
--999999999 - success
+-999999999 - deleted
 True
 
 >>> delete_response = ''
