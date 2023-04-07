@@ -147,55 +147,7 @@ class OclcService:
             json.dump(self.auth_json, f, ensure_ascii=False, indent=2)
         return self.auth_json['access_token']
 
-    # Takes a list of OCLC numbers as integers, and removes the max allowed count for 
-    # verification at OCLC. The remainder of the list and the JSON response is returned.
-    # param:  List of OCLC numbers (as integers) to verify.
-    # param: debug boolean True will show the request URL.
-    # Return: response JSON.
-    def check_oclc_numbers(self, oclc_numbers:list, debug:bool=False) -> dict:
-        access_token = self._get_access_token_()
-        headers = {
-            "accept": "application/atom+json",
-            "Authorization": f"Bearer {access_token}"
-        }
-        # curl -X 'GET' \
-        # 'https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers=123456,7890122,4455677' \
-        # -H 'accept: application/atom+json' \
-        # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
-        param_str = self._list_to_param_str_(oclc_numbers)
-        url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
-        if debug:
-            print(f"DEBUG: url={url}")
-        response = requests.get(url=url, headers=headers)
-        if debug:
-            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
-        # self.logger.logit(f"response: '{response.json()}'")
-        # {'entries': [
-        #   {'title': '850939592', 
-        #     'content': {
-        #       'requestedOclcNumber': '850939592', 
-        #       'currentOclcNumber': '850939592', 
-        #       'institution': 'OCPSB', 'status': 'HTTP 200 OK', 'detail': 'Record found.', 
-        #       'id': 'http://worldcat.org/oclc/850939592', 
-        #       'found': True, 
-        #       'merged': False
-        #     }, 
-        #     'updated': '2023-01-31T20:39:40.088Z'
-        #   }, 
-        #   {'title': '850939596', 
-        #     'content': {
-        #       'requestedOclcNumber': '850939596', 
-        #       'currentOclcNumber': '850939596', 
-        #       'institution': 'OCPSB', 'status': 'HTTP 200 OK', 'detail': 'Record found.', 
-        #       'id': 'http://worldcat.org/oclc/850939596', 
-        #       'found': True, 
-        #       'merged': False
-        #     }, 
-        #     'updated': '2023-01-31T20:39:40.089Z'
-        #  }]
-        # }
-        # return the list of remaining OCLC numbers and JSON results.
-        return response.json()
+    
 
     # Add validation of Bib Record. 
     # param: MARC 21 XML record. 
@@ -408,6 +360,56 @@ class OclcService:
         # and a HTTP code of 200
         return response.content
 
+    # Takes a list of OCLC numbers as integers, and removes the max allowed count for 
+    # verification at OCLC. The remainder of the list and the JSON response is returned.
+    # param:  List of OCLC numbers (as integers) to verify.
+    # param: debug boolean True will show the request URL.
+    # Return: response JSON.
+    def check_oclc_numbers(self, oclc_numbers:list, debug:bool=False) -> dict:
+        access_token = self._get_access_token_()
+        headers = {
+            "accept": "application/atom+json",
+            "Authorization": f"Bearer {access_token}"
+        }
+        # curl -X 'GET' \
+        # 'https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers=123456,7890122,4455677' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        param_str = self._list_to_param_str_(oclc_numbers)
+        url = f"https://worldcat.org/bib/checkcontrolnumbers?oclcNumbers={param_str}"
+        if debug:
+            print(f"DEBUG: url={url}")
+        response = requests.get(url=url, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
+        # self.logger.logit(f"response: '{response.json()}'")
+        # {'entries': [
+        #   {'title': '850939592', 
+        #     'content': {
+        #       'requestedOclcNumber': '850939592', 
+        #       'currentOclcNumber': '850939592', 
+        #       'institution': 'OCPSB', 'status': 'HTTP 200 OK', 'detail': 'Record found.', 
+        #       'id': 'http://worldcat.org/oclc/850939592', 
+        #       'found': True, 
+        #       'merged': False
+        #     }, 
+        #     'updated': '2023-01-31T20:39:40.088Z'
+        #   }, 
+        #   {'title': '850939596', 
+        #     'content': {
+        #       'requestedOclcNumber': '850939596', 
+        #       'currentOclcNumber': '850939596', 
+        #       'institution': 'OCPSB', 'status': 'HTTP 200 OK', 'detail': 'Record found.', 
+        #       'id': 'http://worldcat.org/oclc/850939596', 
+        #       'found': True, 
+        #       'merged': False
+        #     }, 
+        #     'updated': '2023-01-31T20:39:40.089Z'
+        #  }]
+        # }
+        # return the list of remaining OCLC numbers and JSON results.
+        return param_str, response.status_code, response.json()
+        
     # Create / set institutional holdings. Used to let OCLC know a library has a title. 
     # param: List of oclc numbers as strings. The max number of numbers will be batch posted
     #   and the remaining returned.
@@ -465,7 +467,7 @@ class OclcService:
         # Request URL
         # https://worldcat.org/ih/datalist?oclcNumbers=1234567,2332344&cascade=1&inst=128807&instSymbol=OCPSB
         # The response can be saved to the report database.
-        return response.status_code, response.json()
+        return param_str, response.status_code, response.json()
 
 if __name__ == "__main__":
     import doctest

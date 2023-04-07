@@ -169,9 +169,7 @@ def write_master(
 # param: list of oclc numbers to check. Ditto integers.
 # param: debug writes diagnostic info to stdout if True.
 # return:
-def read_master(
-    path:str='master.lst', 
-    debug:bool=True):
+def read_master(path:str='master.lst', debug:bool=True):
     if exists(path) and getsize(path) > 0:
         if debug:
             print(f"checking {path} for OCLC numbers and processing instructions.")
@@ -196,7 +194,7 @@ def read_master(
                 print(f"first 5 add records: {add_list[:5]}")
                 print(f"first 5 del records: {del_list[:5]}")
                 print(f"first 5 chk records: {check_list[:5]}")
-                print(f"skipped {skipped} records with nothing to do.")
+                print(f"{skipped} records remained status quo")
     return add_list, del_list, check_list
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
@@ -247,84 +245,6 @@ def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
     msg += f"      total records: {tally['total']}"
     logger.logit(f"{msg}", include_timestamp=False)
 
-# Adds or sets the institutional holdings.
-# param: oclc number list of holdings to set.
-# param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server. 
-# param: Logger. 
-# param: debug True for debug information.
-# return: None
-def add_holdings(
-  oclc_numbers:list, 
-  configs:dict, 
-  logger:Log, 
-  debug:bool=False):
-    # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    left_over_record_count = 0
-    while oclc_numbers:
-        number_str, status_code, json_response = ws.set_institution_holdings(oclc_numbers)
-        if not report.set_response(code=status_code, json_data=json_response, debug=debug):
-            left_over_record_count = len(oclc_numbers)
-            msg = f"The web service stopped while setting holdings.\nThe following numbers weren't processed.\n{oclc_numbers}"
-            logger.logit(msg, level='error', include_timestamp=True)
-            break
-    r_dict = report.get_set_holdings_results()
-    print_tally('add / set', r_dict, logger)
-
-# Checks list of OCLC control numbers as part of the institutional holdings.
-# param: oclc number list of holdings to set.
-# param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server.
-# param: Logger. 
-# param: debug True for debug information.
-# return: None
-def check_holdings(
-  oclc_numbers:list, 
-  configs:dict, 
-  logger:Log, 
-  debug:bool=False):
-    # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    left_over_record_count = 0
-    while oclc_numbers:
-        response = ws.check_oclc_numbers(oclc_numbers, debug=debug)
-        if not report.check_response(response, debug=debug):
-            left_over_record_count = len(oclc_numbers)
-            msg = f"The web service stopped while checking numbers.\nThe following numbers weren't processed.\n{oclc_numbers}"
-            logger.logit(msg, level='error', include_timestamp=True)
-            break
-    r_dict = report.get_check_results()
-    print_tally('check', r_dict, logger)
-
-# Checks list of OCLC control numbers as part of the institutional holdings.
-# param: oclc number list of holdings to set.
-# param: config_yaml string path to the YAML file, containing connection and authentication for 
-#   a given server.
-# param: Logger. 
-# param: debug True for debug information.
-# return: None
-def delete_holdings(
-  oclc_numbers:list, 
-  configs:dict, 
-  logger:Log, 
-  debug:bool=False):
-    # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    left_over_record_count = 0
-    while oclc_numbers:
-        response = ws.unset_institution_holdings(oclc_numbers, debug=debug)
-        if not report.delete_response(response, debug=debug):
-            left_over_record_count = len(oclc_numbers)
-            msg = f"The web service stopped while deleting holdings.\nThe following numbers weren't processed.\n{oclc_numbers}"
-            logger.logit(msg, level='error', include_timestamp=True)
-            break
-    r_dict = report.get_delete_holdings_results()
-    print_tally('delete / unset', r_dict, logger)
-
 # Creates an institutional-specific bib record. 
 # param: list of records as lists of FLAT strings, where FLAT refers to 
 #  SirsiDynix's Symphony FLAT record format.
@@ -333,6 +253,9 @@ def upload_bib_record(
   configs:dict, 
   logger:Log, 
   debug:bool=False):
+    if not flat_records:
+        print_tally('bib upload', {}, logger)
+        return
     # TODO: This request throws an error on the test sandbox. I have submitted a query
     # to OCLC to determine why, but have not heard back yet. April 06, 2023.
     ws = OclcService(configs, logger=logger, debug=debug)
@@ -354,6 +277,88 @@ def upload_bib_record(
     r_dict = report.get_bib_load_results()
     print_tally('bib upload', r_dict, logger)
 
+# Adds or sets the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server. 
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def add_holdings(
+  oclc_numbers:list, 
+  configs:dict, 
+  logger:Log, 
+  debug:bool=False):
+    if not oclc_numbers:
+        print_tally('add / set', {}, logger)
+        return
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    while oclc_numbers:
+        param_str, status_code, content = ws.set_institution_holdings(oclc_numbers)
+        if not report.set_response(code=status_code, json_data=content, debug=debug):
+            msg = f"The web service stopped while setting holdings:\n{param_str}"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
+    r_dict = report.get_set_holdings_results()
+    print_tally('add / set', r_dict, logger)
+
+# Checks list of OCLC control numbers as part of the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server.
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def check_holdings(
+  oclc_numbers:list, 
+  configs:dict, 
+  logger:Log, 
+  debug:bool=False):
+    if not oclc_numbers:
+        print_tally('check', {}, logger)
+        return
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    while oclc_numbers:
+        param_str, status_code, content = ws.check_oclc_numbers(oclc_numbers, debug=debug)
+        if not report.check_response(code=status_code, json_data=content, debug=debug):
+            msg = f"The web service stopped while checking numbers:\n{param_str}"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
+    r_dict = report.get_check_results()
+    print_tally('check', r_dict, logger)
+
+# Checks list of OCLC control numbers as part of the institutional holdings.
+# param: oclc number list of holdings to set.
+# param: config_yaml string path to the YAML file, containing connection and authentication for 
+#   a given server.
+# param: Logger. 
+# param: debug True for debug information.
+# return: None
+def delete_holdings(
+  oclc_numbers:list, 
+  configs:dict, 
+  logger:Log, 
+  debug:bool=False):
+    if not oclc_numbers:
+        print_tally('delete / unset', {}, logger)
+        return
+    # Create a web service object. 
+    ws = OclcService(configs, logger=logger, debug=debug)
+    report = OclcReport(logger=logger, debug=debug)
+    while oclc_numbers:
+        param_str, status_code, content = ws.unset_institution_holdings(oclc_numbers, debug=debug)
+        if not report.delete_response(code=status_code, json_data=content, debug=debug):
+            msg = f"The web service stopped while deleting holdings:\n{param_str}"
+            logger.logit(msg, level='error', include_timestamp=True)
+            break
+    r_dict = report.get_delete_holdings_results()
+    print_tally('delete / unset', r_dict, logger)
+
+
 
 # Main entry to the application if not testing.
 def main(argv):
@@ -371,7 +376,7 @@ def main(argv):
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
     parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
-    parser.add_argument('--update', action='store_true', default=False, help='Will update the database with instructions found in the "master.lst".')
+    parser.add_argument('--update_instructions', action='store', default=MASTER_LIST_PATH, help=f"File that contains instructions to update WorldCat.Default {MASTER_LIST_PATH}")
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
@@ -395,19 +400,20 @@ def main(argv):
         print(f"remote: '{args.remote}'")
         print(f"set: '{args.set}'")
         print(f"unset: '{args.unset}'")
-        print(f"update: '{args.update}'")
+        print(f"update: '{args.update_instructions}'")
         print(f"xml records: '{args.xml_records}'")
         print(f"yaml: '{args.yaml}'")
         print(f"== vars ==\n")
 
     # Upload XML MARC21 records.
     if args.xml_records:
+        # TODO: Waiting for OCLC to respond with answers to why the XML throws an error. 
         pass
     
     # Two lists, one for adding holdings and one for deleting holdings. 
     set_holdings_lst   = []
     unset_holdings_lst = []
-    check_holdings     = []
+    check_holdings_lst = []
     # Add records to institution's holdings.
     if args.set:
         set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
@@ -418,7 +424,7 @@ def main(argv):
 
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
-        check_holdings = _read_num_file_(args.check, 'check', args.debug)
+        check_holdings_lst = _read_num_file_(args.check, 'check', args.debug)
 
     # Reclamation report that is both files must exist and be read.
     if args.local and args.remote:
@@ -446,17 +452,17 @@ def main(argv):
         master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst, debug=args.debug)
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
-            sys.stderr.write(f"DEBUG: writing {MASTER_LIST_PATH}.\n")
-        write_master(MASTER_LIST_PATH, master_list=master_list)
+            sys.stderr.write(f"DEBUG: writing {args.update_instructions}.\n")
+        write_master(path=args.update_instructions, master_list=master_list)
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
-        # read_master(MASTER_LIST_PATH, debug=args.debug)
 
-        
     # Call the web service with the appropriate list, and capture results.
-    if args.update:
-        
-        pass
+    if args.update_instructions:
+        set_holdings_lst, unset_holdings_lst, check_holdings_lst = read_master(args.update_instructions, debug=args.debug)
+        check_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+        delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+        add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
 
 
 if __name__ == "__main__":

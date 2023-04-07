@@ -55,7 +55,10 @@ class OclcReport:
     # 
     # For example: ['?12345 - success', '?67890 - updated to 6777790', 
     # '?999999999 - error Record not found.']
-    def check_response(self, json_data:dict, debug:bool=False) ->bool:
+    def check_response(self, 
+      code:int,
+      json_data:dict, 
+      debug:bool=False) ->bool:
         results = []
         b_result= True
         if json_data:
@@ -72,7 +75,7 @@ class OclcReport:
                     return_str = f"?{title}"
                     if found:
                         if old_num == new_num:
-                            return_str += f" - success"
+                            return_str += f" - valid OCLC number"
                             self.checks['success'] += 1
                         else:
                             return_str += f" - updated to {new_num}"
@@ -144,7 +147,7 @@ class OclcReport:
                     new_num = entry['content']['currentOclcNumber']
                     return_str = f"+{title}"
                     if old_num == new_num:
-                        return_str += f" - success"
+                        return_str += f" - added"
                         self.adds['success'] += 1
                     else:
                         return_str += f" - updated to {new_num}"
@@ -201,16 +204,16 @@ class OclcReport:
                     new_num = entry['content']['currentOclcNumber']
                     return_str = f"-{title}"
                     if old_num == new_num:
-                        return_str += f" - success"
-                        self.adds['success'] += 1
+                        return_str += f" - deleted"
+                        self.dels['success'] += 1
                     else:
                         return_str += f" - updated to {new_num}"
                         detail = entry['content']['detail']
                         if detail:
                             return_str += f", {detail}"
-                            self.adds['warnings'] += 1
+                            self.dels['warnings'] += 1
                     results.append(return_str)
-                    self.adds['total'] += 1
+                    self.dels['total'] += 1
             except KeyError as ex:
                 try:
                     reported_error = f"OCLC said: {json_data['message']}"
@@ -218,7 +221,7 @@ class OclcReport:
                     reported_error = f"JSON: {json_data}"
                 msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
                 self.logger.logit(msg, 'error')
-                self.adds['errors'] += 1
+                self.dels['errors'] += 1
                 results.append(msg)
                 b_result = False
         self.logger.logem(results)
