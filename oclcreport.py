@@ -40,11 +40,81 @@ class OclcReport:
 
     def __init__(self, logger:Log, debug:bool=False):
         self.debug = debug
-        self.checks = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
-        self.adds   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
-        self.dels   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
-        self.bibs   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
-        self.logger = logger
+        self.checks   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.holdings = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.adds     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.dels     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.bibs     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        self.logger   = logger
+
+    # {'title': '46629055', 
+    #  'content': 
+    #       {'requestedOclcNumber': '46629055', 
+    #        'currentOclcNumber': '46629055', 
+    #        'institution': 'CNEDM', 
+    #        'holdingCurrentlySet': False, 
+    #        'id': 'http://worldcat.org/oclc/46629055'}, 
+    #  'updated': '2023-04-20T22:38:06.540Z'}
+    # Interprets the JSON response from the 
+    # worldcat.org/ih/checkholdings?oclcNumber request. 
+    # param: json response object.
+    # param: debug bool value true if you want more messaging and false for less.
+    # returns: True if successful and False otherwise.
+    def check_holdings_response(self, 
+      code:int,
+      json_data:dict, 
+      debug:bool=False) ->bool:
+        results = []
+        if code < 200 or code > 207:
+            msg = ''
+            try:
+                reported_error = f"OCLC said: {json_data}"
+            except KeyError as ex:
+                reported_error = f"JSON: {json_data}"
+                msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
+            except TypeError:
+                reported_error = f"JSON: was empty!"
+                msg = f"check failed!"
+            self.logger.logit(msg, 'error')
+            self.holdings['errors'] += 1
+            return False
+        b_result= True
+        if json_data:
+            if debug:
+                print(f"DEBUG: check got JSON ===>{json_data}")
+            try:
+                title          = json_data['title']
+                updated        = json_data['updated']
+                updated = updated.replace("T", " ")
+                updated = updated[:-5]
+                content        = json_data['content']
+                old_num        = content['requestedOclcNumber']
+                new_num        = content['currentOclcNumber']
+                is_holding_set = content['holdingCurrentlySet']
+                check_url      = content['id']
+                return_str     = f"?{title} is holding: {is_holding_set}, last updated: '{updated}'"
+                self.holdings['success'] += 1
+                if is_holding_set:
+                    if old_num == new_num:
+                        return_str += f" - OCLC number confirmed"
+                    else:
+                        return_str += f" - OCLC number updated to {new_num}"
+                        self.holdings['warnings'] += 1
+                return_str += f" See {check_url} for more information."
+                results.append(return_str)
+                self.holdings['total'] += 1
+            except KeyError as ex:
+                try:
+                    reported_error = f"OCLC said: {json_data}"
+                except KeyError as fx:
+                    reported_error = f"JSON: {json_data}"
+                msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
+                self.logger.logit(msg, 'error')
+                results.append(msg)
+                # There was a problem with the web service so stop processing.
+                b_result = False
+        self.logger.logem(results)
+        return b_result
 
     # Interprets the JSON response from the 
     # worldcat.org/bib/checkcontrolnumbers request. 
@@ -60,6 +130,19 @@ class OclcReport:
       json_data:dict, 
       debug:bool=False) ->bool:
         results = []
+        if code < 200 or code > 207:
+            msg = ''
+            try:
+                reported_error = f"OCLC said: {json_data}"
+            except KeyError as ex:
+                reported_error = f"JSON: {json_data}"
+                msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
+            except TypeError:
+                reported_error = f"JSON: was empty!"
+                msg = f"check failed!"
+            self.logger.logit(msg, 'error')
+            self.checks['errors'] += 1
+            return False
         b_result= True
         if json_data:
             if debug:
@@ -88,7 +171,7 @@ class OclcReport:
                     self.checks['total'] += 1
             except KeyError as ex:
                 try:
-                    reported_error = f"OCLC said: {json_data['message']}"
+                    reported_error = f"OCLC said: {json_data}"
                 except KeyError as fx:
                     reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
@@ -125,7 +208,7 @@ class OclcReport:
         if code < 200 or code > 207:
             msg = ''
             try:
-                reported_error = f"OCLC said: {json_data['message']}"
+                reported_error = f"OCLC said: {json_data}"
             except KeyError as ex:
                 reported_error = f"JSON: {json_data}"
                 msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
@@ -159,7 +242,7 @@ class OclcReport:
                     self.adds['total'] += 1
             except KeyError as ex:
                 try:
-                    reported_error = f"OCLC said: {json_data['message']}"
+                    reported_error = f"OCLC said: {json_data}"
                 except KeyError as ex:
                     reported_error = f"JSON: {json_data}"
                 msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
@@ -180,7 +263,7 @@ class OclcReport:
         if code < 200 or code > 207:
             msg = ''
             try:
-                reported_error = f"OCLC said: {json_data['message']}"
+                reported_error = f"OCLC said: {json_data}"
             except KeyError as ex:
                 reported_error = f"JSON: {json_data}"
                 msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
@@ -216,7 +299,7 @@ class OclcReport:
                     self.dels['total'] += 1
             except KeyError as ex:
                 try:
-                    reported_error = f"OCLC said: {json_data['message']}"
+                    reported_error = f"OCLC said: {json_data}"
                 except KeyError as ex:
                     reported_error = f"JSON: {json_data}"
                 msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
@@ -262,6 +345,11 @@ class OclcReport:
     # return: dictionary of bib load results.
     def get_bib_load_results(self) ->dict:
         return self.bibs
+
+    # Returns the check holdings tally. 
+    # return: dictionary of holdings results.
+    def get_check_holdings_results(self) ->dict:
+        return self.holdings
 
 if __name__ == "__main__":
     import doctest

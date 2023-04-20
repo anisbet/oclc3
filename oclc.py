@@ -194,7 +194,8 @@ def read_master(path:str='master.lst', debug:bool=True):
                 print(f"first 5 add records: {add_list[:5]}")
                 print(f"first 5 del records: {del_list[:5]}")
                 print(f"first 5 chk records: {check_list[:5]}")
-                print(f"{skipped} records remained status quo")
+                if skipped:
+                    print(f"{skipped} records remained status quo")
     return add_list, del_list, check_list
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
@@ -311,7 +312,7 @@ def add_holdings(
 # param: Logger. 
 # param: debug True for debug information.
 # return: None
-def check_holdings(
+def check_our_holdings(
   oclc_numbers:list, 
   configs:dict, 
   logger:Log, 
@@ -323,13 +324,13 @@ def check_holdings(
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
     while oclc_numbers:
-        param_str, status_code, content = ws.check_oclc_numbers(oclc_numbers, debug=debug)
-        if not report.check_response(code=status_code, json_data=content, debug=debug):
+        param_str, status_code, content = ws.check_institution_holdings(oclc_numbers, debug=debug)
+        if not report.check_holdings_response(code=status_code, json_data=content, debug=debug):
             msg = f"The web service stopped while checking numbers:\n{param_str}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
-    r_dict = report.get_check_results()
-    print_tally('check', r_dict, logger)
+    r_dict = report.get_check_holdings_results()
+    print_tally('holdings', r_dict, logger)
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -460,9 +461,14 @@ def main(argv):
     # Call the web service with the appropriate list, and capture results.
     if args.update_instructions:
         set_holdings_lst, unset_holdings_lst, check_holdings_lst = read_master(args.update_instructions, debug=args.debug)
-        check_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-        delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-        add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+        if args.debug:
+            sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
+        if check_holdings_lst:
+            check_our_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+        if unset_holdings_lst:
+            delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+        if set_holdings_lst:
+            add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
 
 
 if __name__ == "__main__":

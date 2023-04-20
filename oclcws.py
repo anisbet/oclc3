@@ -36,6 +36,7 @@ class OclcService:
         self.client_id   = configs['service']['clientId']
         self.secret      = configs['service']['secret']
         self.inst_id     = configs['service']['registryId']
+        self.principal_id= configs['service']['principalId']
         self.inst_symbol = configs['service']['institutionalSymbol']
         self.branch      = configs['service']['branchName']
         self.logger      = logger
@@ -100,7 +101,10 @@ class OclcService:
             "Authorization": f"Basic {encoded_auth}",
             "Content-Type": "application/x-www-form-urlencoded"
         }
-        url = "https://oauth.oclc.org/token?grant_type=client_credentials&scope=WorldCatMetadataAPI"
+        url = f"https://oauth.oclc.org/token?grant_type=client_credentials&scope=WorldCatMetadataAPI"
+        # url = f"https://oauth.oclc.org/token?grant_type=client_credentials&scope=WorldCatMetadataAPI%20context:{self.inst_id}"
+        if self.debug == True:
+            self.logger.logit(f"request URL: {url}")
         response = requests.post(url, headers=headers)
         if self.debug == True:
             self.logger.logit(f"{response.json()}")
@@ -360,11 +364,12 @@ class OclcService:
         # and a HTTP code of 200
         return response.content
 
+    # Checks that the list of numbers are recognized as OCLC numbers. 
     # Takes a list of OCLC numbers as integers, and removes the max allowed count for 
     # verification at OCLC. The remainder of the list and the JSON response is returned.
     # param:  List of OCLC numbers (as integers) to verify.
     # param: debug boolean True will show the request URL.
-    # Return: response JSON.
+    # Return: parameter OCLC numbers, the response status code, and json response object.
     def check_oclc_numbers(self, oclc_numbers:list, debug:bool=False) -> dict:
         access_token = self._get_access_token_()
         headers = {
@@ -407,6 +412,30 @@ class OclcService:
         #     'updated': '2023-01-31T20:39:40.089Z'
         #  }]
         # }
+        # return the list of remaining OCLC numbers and JSON results.
+        return param_str, response.status_code, response.json()
+
+    # Confirms institutional holdings.
+    # param:  List of OCLC numbers (as integers) to verify.
+    # param: debug boolean True will show the request URL.
+    # return: parameter OCLC numbers, the response status code, and json response object.
+    def check_institution_holdings(self, oclc_numbers:list, debug:bool=False) -> dict:
+        access_token = self._get_access_token_()
+        headers = {
+            "accept": "application/atom+json",
+            "Authorization": f"Bearer {access_token}"
+        }
+        # curl -X 'GET' \
+        # 'https://worldcat.org/ih/checkholdings?oclcNumber=46628016&inst=128807&instSymbol=OCPSB' \
+        # -H 'accept: application/atom+json' \
+        # -H 'Authorization: Bearer tk_Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+        param_str = self._list_to_param_str_(oclc_numbers, max=1)
+        url = f"https://worldcat.org/ih/checkholdings?oclcNumber={param_str}&inst={self.inst_id}&instSymbol={self.inst_symbol}"
+        if debug:
+            print(f"DEBUG: url={url}")
+        response = requests.get(url=url, headers=headers)
+        if debug:
+            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
         # return the list of remaining OCLC numbers and JSON results.
         return param_str, response.status_code, response.json()
         
