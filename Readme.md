@@ -49,17 +49,21 @@ Maintains holdings in OCLC WorldCat Search.
 optional arguments:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
+  -c [/foo/check.lst], --check [/foo/check.lst]
+                        Check if the OCLC numbers in the list are valid.
+  -d, --debug           turn on debugging.
+  -l [/foo/local.lst], --local [/foo/local.lst]
+                        Local OCLC numbers list collected from the library's ILS.
+  -r [/foo/remote.lst], --remote [/foo/remote.lst]
+                        Remote (OCLC) numbers list from WorldCat holdings report.
   -s [/foo/bar.txt], --set [/foo/bar.txt]
                         OCLC numbers to add or set in WorldCat.
   -u [/foo/bar.txt], --unset [/foo/bar.txt]
                         OCLC numbers to delete from WorldCat.
-  -r [/foo/remote.lst], --remote [/foo/remote.lst]
-                        Remote (OCLC) numbers list from WorldCat holdings report.
-  -l [/foo/local.lst], --local [/foo/local.lst]
-                        Local OCLC numbers list collected from the library's ILS.
+  --update_instructions UPDATE_INSTRUCTIONS
+                        File that contains instructions to update WorldCat. Default master.lst
   -x XML_RECORDS, --xml_records XML_RECORDS
                         file of MARC21 XML catalog records to submit as special local holdings.
-  -d, --debug           turn on debugging.
   -y [/foo/test.yaml], --yaml [/foo/test.yaml]
                         alternate YAML file for testing.
 

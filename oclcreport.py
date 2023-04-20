@@ -92,7 +92,8 @@ class OclcReport:
                 new_num        = content['currentOclcNumber']
                 is_holding_set = content['holdingCurrentlySet']
                 check_url      = content['id']
-                return_str     = f"?{title} is holding: {is_holding_set}, last updated: '{updated}'"
+                institution    = content['institution']
+                return_str     = f"?{title} is {institution} holding: {is_holding_set} as of '{updated}'"
                 self.holdings['success'] += 1
                 if is_holding_set:
                     if old_num == new_num:

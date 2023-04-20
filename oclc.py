@@ -370,14 +370,14 @@ def main(argv):
         description='Maintains holdings in OCLC WorldCat database.',
         epilog='See "-h" for help more information.'
     )
-    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+    parser.add_argument('--version', action='version', version='%(prog)s 1.00.01')
     parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
     parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
-    parser.add_argument('--update_instructions', action='store', default=MASTER_LIST_PATH, help=f"File that contains instructions to update WorldCat.Default {MASTER_LIST_PATH}")
+    parser.add_argument('--update_instructions', action='store', default=MASTER_LIST_PATH, help=f"File that contains instructions to update WorldCat. Default {MASTER_LIST_PATH}")
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
