@@ -2,6 +2,16 @@
 
 `oclc` is a Python application to manage library holdings in OCLC's [WorldCat discovery](https://www.worldcat.org/) database through [WorldCat Metadata web services](https://www.oclc.org/developer/develop/web-services.en.html). [See here for more information](#regular-worldcat-maintenance).
 
+There are three operations that are basic to maintaining a record of catalog holdings for your library. At a basic level you need to let OCLC know what records you have added, what you have modified, and what you have removed from your collection.
+
+Previously our library used a batch process. A script ran weekly and collected all the added and modified records from the previous week, format them into MARC, and upload them to an SFTP site. That's the easy part.
+
+The harder part is identifying what records have been deleted; tricky since the records are gone, so there is no way to search in the database.
+
+To find the deleted records the script would scour the history (Symphony) logs looking for deletion and create a simplified CSV file to OCLC's specification, and upload that as well.
+
+When using WorldCat MetaData API you mearly find the OCLC numbers from the records in your catalog and then submit a set request to OCLC to indicate your library has that record as a holding in OCLC parlance. The same process is used for updates, and ditto for deletes. No SFTP-ing large files.
+
 ## Requesting Web Services Keys
 you can get info about keys [from this link](https://www.oclc.org/developer/api/keys.en.html) and [request keys here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost) after entering your institution's symbol.
 
@@ -13,7 +23,7 @@ you can get info about keys [from this link](https://www.oclc.org/developer/api/
 * The master list (receipt) shall be updated with what happened with either of the following.
   * ` - success` if everything went as planned.
   * ` - error [reason]`, on error output the error.
-  * ` - pending` if the web service hit count exceeded quota
+  * ` - pending` if the web service hit count exceeded [quota](#web-service-quotas). See also [this section](#testing) for examples of how to set quotas.
   * ` - updated [new]` if the two numbers differ, and ` - success` if no change required.
 
 ## Testing
@@ -29,6 +39,9 @@ service:
   principalIdns: 'urn:oclc:wms:da' # Provided but not used.
   institutionalSymbol: 'OCPSB' # Test institutional symbol supplied by OCLC.
 report: 'oclc.log'
+checkQuota: 500000   # Optional
+deleteQuota: 500000  # Optional
+addQuota: 5000000    # Optional
 
 # Configurations for the database.
 database:
@@ -41,7 +54,7 @@ Once set up the script can be run from the command line as follows.
 ### Help
 ```bash
 # For help use...
-python3 oclc.py --help
+python oclc.py --help
 usage: oclc [options]
 
 Maintains holdings in OCLC WorldCat Search.
@@ -74,7 +87,7 @@ See [the add documentation](#regular-worldcat-maintenance) for more information.
 ```bash
 # With a list of OCLC numbers to add/update on OCLC's sandbox with
 # a file of OCLC numbers called add_me.lst...
-python3 oclc.py --yaml=test.yaml --set add_me.lst
+python oclc.py --yaml=test.yaml --set add_me.lst
  ...
 ```
 
@@ -83,7 +96,7 @@ See [the delete documentation](#delete--unset-oclc-numbers) for more information
 ```bash
 # Delete or unset the OCLC numbers in 'delete_me.lst' using OCLC's 
 # production database...
-python3 oclc.py --yaml=production.yaml --unset delete_me.lst
+python oclc.py --yaml=production.yaml --unset delete_me.lst
  ...
 ```
 
@@ -91,7 +104,8 @@ python3 oclc.py --yaml=production.yaml --unset delete_me.lst
 See [this section on reclamation](#reclamations-instructions) for more information.
 ```bash
 # Perform reclamation-like operation on OCLC's production database. 
-python3 oclc.py --yaml=production.yaml --remote oclc_reported_holdings.lst --local our_current_holdings.lst
+python oclc.py --yaml=production.yaml --remote oclc_reported_holdings.lst --local our_current_holdings.lst
+python oclc.py --update_instructions=master.lst --yaml=production.yaml 
  ...
 ```
 
@@ -102,7 +116,7 @@ python3 oclc.py --yaml=production.yaml --remote oclc_reported_holdings.lst --loc
 * Get API keys from [here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost).
 * Create a YAML file of you site's [OCLC settngs](#required-oclc-settings).
 * Make sure python 3.7 (minimum) is installed and install libraries in a virtual environment (`venv`).
-  * Create a virtual environment (`venv`) with `python3 -m venv oclcvenv`
+  * Create a virtual environment (`venv`) with `python -m venv oclcvenv`
   * Use the `venv` with `. oclcvenv/bin/activate`
   * Update `pip` with `pip install --upgrade pip`
   * Install wheel with `pip install wheel`
@@ -154,6 +168,11 @@ While this sounds complicated, there are some simple rules.
 3) The flags `--local` and `--remote` must be used together.
 4) You can use the same `master.lst` with both `--set` or `--unset` switches.
 
+## Web Service Quotas
+Each of the operations of `check`, `add`, and `delete` can have applied quotas which prevents the application exceeding OCLC's web service API call quotas. Quotas are optional and if missing from the yaml file, `oclc.py` will attempt to complete all the instructions on the `master.lst`.
+
+With a quota set, once the limit is reached the `master.lst` is updated with the remaining instructions to do when the script is restarted.
+
 ## Example of a Number List
 ```bash
 +123456 Treasure Isl... # The record 123456 will be added when '--set' is used.
@@ -172,24 +191,24 @@ Random text on a line   # Ignored.
 
 1) On the ILS, select all the records that OCLC should be aware of. [A suggestion of Symphony API instructions can be found here.](#library-records). This will become the **local** list.
 2) Generate a report of all the records OCLC has for your institution. [See here for hints on how to generate a report of your holdings.](#oclc-records). This will become the **remote** list.
-3) Use the command `python3 oclc.py --local=local.lst --remote=remote.lst`. This will generate a master list of record instructions with [patch notation]().
+3) Use the command `python oclc.py --local=local.lst --remote=remote.lst`. This will generate a master list of record instructions with [patch notation]().
 
 ## OCLC Records
 1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
-2) Once logged in select the ```Analytics``` tab.
-3) Select Collection Evaluation and click the ```My Library``` button.
-4) Below the summary table select export title list, and dismiss the dialog telling you how long it will take. Expect at least **1.5+ hours**.
-5) Download the zipped XSL file from the ```My Files``` menu on the left of the page, and unzip.
-6) You can use ```pandas``` or ```excel``` to open and analyse, but I have more luck with `OpenOffice`.
+2) Once logged in select the `Analytics` tab.
+3) Select Collection Evaluation and click the `My Library` button.
+4) Below the summary table select `Export Title List` button, give the report a name and description if desired, and dismiss the dialog telling you how long it will take. Expect at least **1.5+ hours**.
+5) Some time later, download the zipped XSL file from the `My Files` menu on the left of the page, and unzip.
+6) You can use `pandas` or `excel` to open and analyse, but I have more luck with `OpenOffice`.
 **Hint**:
-   1) Open the ```xls``` in ```OpenOffice``` sheets as a **fixed width** document.
-   2) Save as `csv` to file ```full_cat.csv```.
-   3) Use awk to process: ```cat full_cat.csv | awk -F'""' '{print $1}' | awk -F'", "' '{print $2}' | awk -F'")' '{print $1}' > oclcnumbers.txt``` to capture all the OCLC numbers.
+   1) Open the `xls` in `OpenOffice` sheets as a **fixed width** document.
+   2) Save as `csv` to file `full_cat.csv`.
+   3) Use awk to process: `cat full_cat.csv | awk -F'""' '{print $1}' | awk -F'", "' '{print $2}' | awk -F'")' '{print $1}' > oclcnumbers.txt` to capture all the OCLC numbers.
       1) **Explanation**: awk 1 splits the file on double-double-quotes, and outputs the first field which is a `HYPERLINK`.
       2) Awk 2 takes the `HYPERLINK` data and further splits that on the only remaining quotes of the `url` and oclc number. It outputs a line that starts with a the oclc number and ends in `")`.
       3) Awk 3 further splits on the afore-mentioned `")`, and outputs field 1.
-   4) To check ```wc -l full_cat.csv``` compared with ```wc -l oclcnumbers.txt```.
-   5) To check that all the lines have values use ```cat oclcnumbers.txt | pipe.pl -zc0 | wc -l```. It should show the same number of lines as the `csv`.
+   4) To check `wc -l full_cat.csv` compared with `wc -l oclcnumbers.txt`.
+   5) To check that all the lines have values use `cat oclcnumbers.txt | pipe.pl -zc0 | wc -l`. It should show the same number of lines as the `csv`.
 7) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
 8) Use `oclc.py` to create a master list by using `--remote=oclcnumbers.txt` and `--local=librarynumbers.txt`. This will create a master list (`master.lst`) in the current directory. Examine the results and see the delta of OCLC and your library. 
    1) Records that OCLC are missing are marked with `+`.
@@ -245,7 +264,7 @@ Ref
 ## Schema
 * [https://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd](https://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd)
 
-##
+## Symphony XML Item Tool
 This tool outputs catalog information about items, as an example:
 ```bash
 head mixed.catkeys.90d.lst | xmlitem -iC -cf -e035,008,250 # Other tags can be added.

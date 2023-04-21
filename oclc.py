@@ -28,12 +28,11 @@ from oclcreport import OclcReport
 from log import Log
 from flat2marcxml import MarcXML
 
-# Master list of OCLC numbers and instructions produced with --local and --remote flags.
-MASTER_LIST_PATH = 'master.lst'
 # Runs doctests
 # TEST = True
 # Runs command line.
 TEST = False
+VERSION='1.01.03'
 
 # OCLC number search regexes
 OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
@@ -147,6 +146,7 @@ def write_master(
     add_list:list=[], 
     del_list:list=[], 
     check_list:list=[], 
+    done_list:list=[],
     debug:bool=True):
     with open(path, encoding='utf8', mode='w') as f:
         if master_list:
@@ -159,6 +159,8 @@ def write_master(
                 f.write(f"-{holding}\n")
             for holding in check_list:
                 f.write(f"?{holding}\n")
+            for holding in done_list:
+                f.write(f"!{holding}\n")
     f.close()
 
 # Reads the master list of instructions. The master list is created by a
@@ -178,6 +180,7 @@ def read_master(path:str='master.lst', debug:bool=True):
             add_list = []
             del_list = []
             check_list = []
+            done_list = []
             skipped = 0
             for temp in f:
                 number = temp.rstrip()  
@@ -187,6 +190,8 @@ def read_master(path:str='master.lst', debug:bool=True):
                     del_list.append(number[1:])
                 elif number.startswith('?'):
                     check_list.append(number[1:])
+                elif number.startswith('!'):
+                    done_list.append(number[1:])
                 else:
                     skipped += 1
                     continue
@@ -194,24 +199,27 @@ def read_master(path:str='master.lst', debug:bool=True):
                 print(f"first 5 add records: {add_list[:5]}")
                 print(f"first 5 del records: {del_list[:5]}")
                 print(f"first 5 chk records: {check_list[:5]}")
+                print(f"first 5 fin records: {done_list[:5]}")
                 if skipped:
                     print(f"{skipped} records remained status quo")
-    return add_list, del_list, check_list
+    return add_list, del_list, check_list, done_list
+
+# Used for reporting percents.
+def trim_decimals(value, prec:int=2) ->float:
+    f_str = f"%.{prec}f"
+    return float(f_str % round(float(value), prec))
 
 # Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
 # and which need no change.
 # param:  List of oclc numbers to delete or unset.
 # param:  List of oclc numbers to set or add. 
-def diff_deletes_adds(del_nums:list, add_nums:list, debug:bool=False) -> list:
+def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log, debug:bool=False) -> list:
     # Store uniq nums and sign.
     ret_dict = {}
     p_count = 0
     total   = 0
     for oclcnum in del_nums:
         ret_dict[oclcnum] = "-"
-        p_count += 1
-    if debug :
-        sys.stderr.write(f"total deletes: {p_count}\n")
     total += p_count
     p_count = 0
     for libnum in add_nums:
@@ -219,14 +227,34 @@ def diff_deletes_adds(del_nums:list, add_nums:list, debug:bool=False) -> list:
             ret_dict[libnum] = " "
         else:
             ret_dict[libnum] = "+"
-        p_count += 1
-    total += p_count
-    if debug :
-        sys.stderr.write(f"total adds   : {p_count}\n")
-        sys.stderr.write(f"total        : {total}\n")
     ret_list = []
+    a_count = 0
+    c_count = 0
+    d_count = 0
+    nc_count = 0
+    done_count = 0
+    unknown = 0
     for (num, sign) in ret_dict.items():
+        if sign == '-':
+            d_count += 1
+        elif sign == '+':
+            a_count += 1
+        else: # This includes ' ' and '!' if that is possible in a diff statement.
+            nc_count += 1
         ret_list.append(f"{sign}{num}")
+    total = len(ret_list)
+    total_active_instructions = a_count + d_count
+    per_over = trim_decimals((float(d_count) / float(total)) * 100.0, prec=1)
+    per_under = trim_decimals((float(a_count) / float(total)) * 100.0, prec=1)
+    msg = f"Diff report:\n"
+    msg += f"     total records: {total}\n"
+    msg += f"        no changes: {nc_count}\n"
+    msg += f"           changes: {total_active_instructions}\n"
+    msg += f"               (+): {a_count}\n"
+    msg += f"               (-): {d_count}\n"
+    msg += f"  over represented: {per_over}%\n"
+    msg += f" under represented: {per_under}%\n"
+    logger.logit(f"{msg}", include_timestamp=False)
     return ret_list
 
 # Prints a consistent tally message of how things worked out. 
@@ -296,14 +324,21 @@ def add_holdings(
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
+    done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.set_institution_holdings(oclc_numbers)
+        done = param_str.split(',')
+        last_oclc_number = ''
+        if done:
+            last_oclc_number = done[-1]
         if not report.set_response(code=status_code, json_data=content, debug=debug):
-            msg = f"The web service stopped while setting holdings:\n{param_str}"
+            msg = f"The web service stopped while setting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
+        done_list.extend(done)
     r_dict = report.get_set_holdings_results()
     print_tally('add / set', r_dict, logger)
+    return done_list
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -311,8 +346,8 @@ def add_holdings(
 #   a given server.
 # param: Logger. 
 # param: debug True for debug information.
-# return: None
-def check_our_holdings(
+# return: List of done OCLC numbers.
+def check_institutional_holdings(
   oclc_numbers:list, 
   configs:dict, 
   logger:Log, 
@@ -323,14 +358,21 @@ def check_our_holdings(
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
+    done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.check_institution_holdings(oclc_numbers, debug=debug)
+        done = param_str.split(',')
+        last_oclc_number = ''
+        if done:
+            last_oclc_number = done[-1]
         if not report.check_holdings_response(code=status_code, json_data=content, debug=debug):
-            msg = f"The web service stopped while checking numbers:\n{param_str}"
+            msg = f"The web service stopped while checking numbers:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
+        done_list.extend(done)
     r_dict = report.get_check_holdings_results()
     print_tally('holdings', r_dict, logger)
+    return done_list
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -350,15 +392,21 @@ def delete_holdings(
     # Create a web service object. 
     ws = OclcService(configs, logger=logger, debug=debug)
     report = OclcReport(logger=logger, debug=debug)
+    done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.unset_institution_holdings(oclc_numbers, debug=debug)
+        done = param_str.split(',')
+        last_oclc_number = ''
+        if done:
+            last_oclc_number = done[-1]
         if not report.delete_response(code=status_code, json_data=content, debug=debug):
-            msg = f"The web service stopped while deleting holdings:\n{param_str}"
+            msg = f"The web service stopped while deleting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
+        done_list.extend(done)
     r_dict = report.get_delete_holdings_results()
     print_tally('delete / unset', r_dict, logger)
-
+    return done_list
 
 
 # Main entry to the application if not testing.
@@ -370,18 +418,20 @@ def main(argv):
         description='Maintains holdings in OCLC WorldCat database.',
         epilog='See "-h" for help more information.'
     )
-    parser.add_argument('--version', action='version', version='%(prog)s 1.00.01')
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
     parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
-    parser.add_argument('--update_instructions', action='store', default=MASTER_LIST_PATH, help=f"File that contains instructions to update WorldCat. Default {MASTER_LIST_PATH}")
+    parser.add_argument('--update', action='store_true', default=False, help='Actually do the work set out in the --update_instructions file.')
+    parser.add_argument('--update_instructions', action='store', help=f"File that contains instructions to update WorldCat.")
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
     
+    logger = ''
     # Load configuration.
     if args.yaml and exists(args.yaml):
         configs = _load_yaml_(args.yaml)
@@ -389,6 +439,7 @@ def main(argv):
             sys.stderr.write(configs.get('error'))
             sys.exit()
         logger = Log(log_file=configs['report'])
+        logger.logit(f"=== starting version {VERSION}", include_timestamp=True)
     else:
         sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
         sys.exit()
@@ -415,6 +466,7 @@ def main(argv):
     set_holdings_lst   = []
     unset_holdings_lst = []
     check_holdings_lst = []
+    done_lst           = []
     # Add records to institution's holdings.
     if args.set:
         set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
@@ -450,30 +502,77 @@ def main(argv):
         # the master. Check the list first before beginning.
         if args.debug:
             sys.stderr.write(f"DEBUG: compiling difference of holdings.\n")
-        master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst, debug=args.debug)
+        master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst, logger=logger, debug=args.debug)
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
             sys.stderr.write(f"DEBUG: writing {args.update_instructions}.\n")
-        write_master(path=args.update_instructions, master_list=master_list)
+        if args.update_instructions:
+            write_master(path=args.update_instructions, master_list=master_list)
+        else:
+            sys.stderr.write(f"*warning, nothing written because you didn't use the --update_instructions flag.")
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
 
     # Call the web service with the appropriate list, and capture results.
-    if args.update_instructions:
-        set_holdings_lst, unset_holdings_lst, check_holdings_lst = read_master(args.update_instructions, debug=args.debug)
-        if args.debug:
-            sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
-        if check_holdings_lst:
-            check_our_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-        if unset_holdings_lst:
-            delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-        if set_holdings_lst:
-            add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+    if args.update:
+        if args.update_instructions:
+            set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst = read_master(args.update_instructions, debug=args.debug)
+            if args.debug:
+                sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
+            if check_holdings_lst:
+                check_holdings_lst = get_list_quota(check_holdings_lst, 'checkQuota', configs)
+                done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(done)
+            if unset_holdings_lst:
+                unset_holdings_lst = get_list_quota(unset_holdings_lst, 'deleteQuota', configs)
+                delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+            if set_holdings_lst:
+                set_holdings_lst = get_list_quota(set_holdings_lst, 'addQuota', configs)
+                add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+            write_master(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
+        else:
+            sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
+    logger.logit('done', include_timestamp=True)
 
+# Returns a subset of the argument data list based on the quotas set 
+# for the type of data list. If the quota is not included in the configs, or if the
+# quota specified is not an integer, the entire list is returned.
+#  
+# param: data list of OCLC numbers.
+# param: quota string quota name defined in the yaml file. For example, 'checkQuota'
+#   'deleteQuota', or 'addQuota'. Note: quota values are used to slice the list.
+#   Negative numbers truncate 'N' values from the end of the list. Positive values
+#   returns a list from the zero-th (first) value upto and including the quota.
+#   If the quota the list size the entire list is returned. 
+# param: configs dictionary which (may) include the requested 'quota' parameter, and
+#   an integer value.
+# return: A subset of the data list which contains the quota of elements (OCLC numbers).   
+def get_list_quota(data:list, quota:str, configs:dict):
+    """ 
+    >>> l = ['0','1','2','3',]
+    >>> configs = {'checkQuota': 2}
+    >>> get_list_quota(l,'checkQuota',configs)
+    ['0', '1']
+    >>> configs = {'checkQuota': -1}
+    >>> get_list_quota(l,'checkQuota',configs)
+    ['0', '1', '2']
+    >>> configs = {'checkQuota': 1000}
+    >>> get_list_quota(l,'checkQuota',configs)
+    ['0', '1', '2', '3']
+    >>> configs = {'wrongQuota': 5}
+    >>> get_list_quota(l,'checkQuota',configs)
+    ['0', '1', '2', '3']
+    """
+    if quota in configs:
+        last_record = configs[quota]
+        if isinstance(last_record, int):
+            return data[:last_record]
+    return data
 
 if __name__ == "__main__":
     if TEST:
         import doctest
+        doctest.testmod()
         doctest.testfile("oclc.tst")
     else:
         main(sys.argv[1:])

@@ -112,17 +112,17 @@ Check the writing and reading of the 'master.lst'
 
 >>> unset_institution_holdings = o._read_num_file_('tests/t.set', 'unset', False)
 >>> o.write_master(path='tests/test_master.lst', del_list=unset_institution_holdings, debug=False)
->>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+>>> s,u,c,d = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(u)
 ['12345', '101112', '7777777', '123456']
 >>> add_holdings = o._read_num_file_('tests/t.set', 'set', False)
 >>> o.write_master(path='tests/test_master.lst', add_list=add_holdings, debug=False)
->>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+>>> s,u,c,d = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(s)
 ['12345', '6789', '123456', '7777777']
 >>> check_holdings = o._read_num_file_('tests/t.set', 'check', False)
 >>> o.write_master(path='tests/test_master.lst', check_list=check_holdings, debug=False)
->>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+>>> s,u,c,d = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(c)
 ['12345', '7777777', '999877']
 
@@ -133,7 +133,7 @@ Check for both set and unset
 
 
 >>> o.write_master(path='tests/test_master.lst', add_list=add_holdings, del_list=unset_institution_holdings, check_list=check_holdings, debug=False)
->>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+>>> s,u,c,d = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(f"{c}")
 ['12345', '7777777', '999877']
 >>> print(f"{u}")
@@ -142,7 +142,7 @@ Check for both set and unset
 ['12345', '6789', '123456', '7777777']
 >>> master = ['-1234', '+1111', ' 2222', '?3333']
 >>> o.write_master(path='tests/test_master.lst', master_list=master, debug=False)
->>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+>>> s,u,c,d = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(f"{c}")
 ['3333']
 >>> print(f"{u}")
@@ -158,7 +158,7 @@ Check that if you don't have any check requests an empty list is returned.
 
 >>> check_list = ['-1234', '+1111', ' 2222', ' 3333']
 >>> o.write_master(path='tests/test_master.lst', master_list=check_list, debug=False)
->>> s,u,c = o.read_master(path='tests/test_master.lst', debug=False)
+>>> s,u,c,d = o.read_master(path='tests/test_master.lst', debug=False)
 >>> print(f"{c}")
 []
 
@@ -177,7 +177,7 @@ Send test OCLC numbers via the web service
 ... 850940351,
 ... 850940364,
 ... 850940368, ]
->>> o.check_holdings(test_check_records, configs, logger, False)
+>>> o.check_institutional_holdings(test_check_records, configs, logger, False)
 ?850939592 - Record confirmed
 ?850939596 - Record confirmed
 ?850939598 - Record confirmed
@@ -201,6 +201,19 @@ operation 'check' results.
 +850939592 - added
 +850939596 - added
 operation 'add / set' results.
+          succeeded: 2
+           warnings: 0
+             errors: 0
+      total records: 2
+
+Test deleting records
+>>> test_del_records = [
+... 12345678,
+... 1223334444,]
+>>> o.delete_holdings(test_del_records, configs, logger, False)
+-12345678 - deleted
+-1223334444 - deleted
+operation 'delete / unset' results.
           succeeded: 2
            warnings: 0
              errors: 0
@@ -281,3 +294,14 @@ Test uploading MARC21 XML record
 ... ".100. 0 |aOCLC Developer Network",
 ... ".245. 10|aTest Record",
 ... ".500.   |aFOR OCLC DEVELOPER NETWORK DOCUMENTATION"]
+
+
+Test write master
+-----------------
+
+>>> dels = [12345678,1223334444,]
+>>> chks = [11111111,2222222222]
+>>> adds = [22222222,2333333333,]
+>>> dels = [33333333,4444444444,]
+>>> done = [10000,20000,30000,40000]
+>>> o.write_master(path='receipt_test.txt', add_list=adds, del_list=dels, check_list=chks, done_list=done)
