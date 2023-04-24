@@ -28,11 +28,13 @@ from oclcreport import OclcReport
 from log import Log
 from flat2marcxml import MarcXML
 
-# Runs doctests
+#######test#########
 # TEST = True
-# Runs command line.
+#######test#########
+#######prod#########
 TEST = False
-VERSION='1.01.03'
+#######prod#########
+VERSION='1.03.01'
 
 # OCLC number search regexes
 OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
@@ -141,7 +143,7 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
 #   '?', or ' '.
 # param: debug writes diagnostic info to stdout if True.
 def write_master(
-    path:str='master.lst', 
+    path:str, 
     master_list:list=[],
     add_list:list=[], 
     del_list:list=[], 
@@ -200,8 +202,7 @@ def read_master(path:str='master.lst', debug:bool=True):
                 print(f"first 5 del records: {del_list[:5]}")
                 print(f"first 5 chk records: {check_list[:5]}")
                 print(f"first 5 fin records: {done_list[:5]}")
-                if skipped:
-                    print(f"{skipped} records remained status quo")
+                print(f"{skipped} records with no changes")
     return add_list, del_list, check_list, done_list
 
 # Used for reporting percents.
@@ -213,7 +214,7 @@ def trim_decimals(value, prec:int=2) ->float:
 # and which need no change.
 # param:  List of oclc numbers to delete or unset.
 # param:  List of oclc numbers to set or add. 
-def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log, debug:bool=False) -> list:
+def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log=None, debug:bool=False) -> list:
     # Store uniq nums and sign.
     ret_dict = {}
     p_count = 0
@@ -243,18 +244,24 @@ def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log, debug:bool=False
             nc_count += 1
         ret_list.append(f"{sign}{num}")
     total = len(ret_list)
-    total_active_instructions = a_count + d_count
-    per_over = trim_decimals((float(d_count) / float(total)) * 100.0, prec=1)
-    per_under = trim_decimals((float(a_count) / float(total)) * 100.0, prec=1)
+    per_over = 'na'
+    per_under = 'na'
+    if total > 0: # Stop divide by zero on empty
+        per_over = trim_decimals((float(d_count) / float(total)) * 100.0, prec=1)
+        per_under = trim_decimals((float(a_count) / float(total)) * 100.0, prec=1)
+    total_changes = a_count + d_count
     msg = f"Diff report:\n"
     msg += f"     total records: {total}\n"
     msg += f"        no changes: {nc_count}\n"
-    msg += f"           changes: {total_active_instructions}\n"
+    msg += f"           changes: {total_changes}\n"
     msg += f"               (+): {a_count}\n"
     msg += f"               (-): {d_count}\n"
     msg += f"  over represented: {per_over}%\n"
-    msg += f" under represented: {per_under}%\n"
-    logger.logit(f"{msg}", include_timestamp=False)
+    msg += f" under represented: {per_under}%"
+    if logger:
+        logger.logit(f"{msg}", include_timestamp=False)
+    else:
+        print(f"{msg}")
     return ret_list
 
 # Prints a consistent tally message of how things worked out. 
@@ -431,7 +438,6 @@ def main(argv):
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
     
-    logger = ''
     # Load configuration.
     if args.yaml and exists(args.yaml):
         configs = _load_yaml_(args.yaml)
@@ -443,7 +449,7 @@ def main(argv):
     else:
         sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
         sys.exit()
-    
+
     if args.debug:
         print(f"== vars ==")
         print(f"check: '{args.check}'")
@@ -455,6 +461,18 @@ def main(argv):
         print(f"update: '{args.update_instructions}'")
         print(f"xml records: '{args.xml_records}'")
         print(f"yaml: '{args.yaml}'")
+        if 'addQuota' in configs:
+            print(f"add quota: {configs['addQuota']}")
+        else:
+            print(f"add unlimited")
+        if 'deleteQuota' in configs:
+            print(f"delete quota: {configs['deleteQuota']}")
+        else:
+            print(f"delete unlimited")
+        if 'checkQuota' in configs:
+            print(f"check quota: {configs['checkQuota']}")
+        else:
+            print(f"check unlimited")
         print(f"== vars ==\n")
 
     # Upload XML MARC21 records.
@@ -514,25 +532,31 @@ def main(argv):
             sys.stderr.write(f"DEBUG: done.\n")
 
     # Call the web service with the appropriate list, and capture results.
-    if args.update:
-        if args.update_instructions:
-            set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst = read_master(args.update_instructions, debug=args.debug)
-            if args.debug:
-                sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
-            if check_holdings_lst:
-                check_holdings_lst = get_list_quota(check_holdings_lst, 'checkQuota', configs)
-                done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                done_lst.extend(done)
-            if unset_holdings_lst:
-                unset_holdings_lst = get_list_quota(unset_holdings_lst, 'deleteQuota', configs)
-                delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-            if set_holdings_lst:
-                set_holdings_lst = get_list_quota(set_holdings_lst, 'addQuota', configs)
-                add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-            write_master(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
-        else:
-            sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
-    logger.logit('done', include_timestamp=True)
+    try:
+        if args.update:
+            if args.update_instructions:
+                set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst = read_master(args.update_instructions, debug=args.debug)
+                if args.debug:
+                    sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
+                if check_holdings_lst:
+                    check_holdings_lst = get_quota(check_holdings_lst, 'checkQuota', configs)
+                    done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                    done_lst.extend(done)
+                if unset_holdings_lst:
+                    unset_holdings_lst = get_quota(unset_holdings_lst, 'deleteQuota', configs)
+                    done = delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                    done_lst.extend(done)
+                if set_holdings_lst:
+                    set_holdings_lst = get_quota(set_holdings_lst, 'addQuota', configs)
+                    done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                    done_lst.extend(done)
+                write_master(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
+            else:
+                sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
+        logger.logit('done', include_timestamp=True)
+    except KeyboardInterrupt:
+        write_master(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
+        logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
 
 # Returns a subset of the argument data list based on the quotas set 
 # for the type of data list. If the quota is not included in the configs, or if the
@@ -547,20 +571,21 @@ def main(argv):
 # param: configs dictionary which (may) include the requested 'quota' parameter, and
 #   an integer value.
 # return: A subset of the data list which contains the quota of elements (OCLC numbers).   
-def get_list_quota(data:list, quota:str, configs:dict):
+def get_quota(data:list, quota:str, configs:dict):
     """ 
     >>> l = ['0','1','2','3',]
+    >>> USE_QUOTAS = True
     >>> configs = {'checkQuota': 2}
-    >>> get_list_quota(l,'checkQuota',configs)
+    >>> get_quota(l,'checkQuota',configs)
     ['0', '1']
     >>> configs = {'checkQuota': -1}
-    >>> get_list_quota(l,'checkQuota',configs)
+    >>> get_quota(l,'checkQuota',configs)
     ['0', '1', '2']
     >>> configs = {'checkQuota': 1000}
-    >>> get_list_quota(l,'checkQuota',configs)
+    >>> get_quota(l,'checkQuota',configs)
     ['0', '1', '2', '3']
     >>> configs = {'wrongQuota': 5}
-    >>> get_list_quota(l,'checkQuota',configs)
+    >>> get_quota(l,'checkQuota',configs)
     ['0', '1', '2', '3']
     """
     if quota in configs:

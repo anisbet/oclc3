@@ -97,9 +97,9 @@ class OclcReport:
                 self.holdings['success'] += 1
                 if is_holding_set:
                     if old_num == new_num:
-                        return_str += f" - OCLC number confirmed"
+                        return_str += f"  OCLC number confirmed"
                     else:
-                        return_str += f" - OCLC number updated to {new_num}"
+                        return_str += f"  OCLC number updated to {new_num}"
                         self.holdings['warnings'] += 1
                 return_str += f" See {check_url} for more information."
                 results.append(return_str)
@@ -124,8 +124,8 @@ class OclcReport:
     # returns: list of requested OCLC numbers with the results of the check 
     # query for each.
     # 
-    # For example: ['?12345 - success', '?67890 - updated to 6777790', 
-    # '?999999999 - error Record not found.']
+    # For example: ['?12345  success', '?67890  updated to 6777790', 
+    # '?999999999  error Record not found.']
     def check_response(self, 
       code:int,
       json_data:dict, 
@@ -159,14 +159,14 @@ class OclcReport:
                     return_str = f"?{title}"
                     if found:
                         if old_num == new_num:
-                            return_str += f" - Record confirmed"
+                            return_str += f"  Record confirmed"
                             self.checks['success'] += 1
                         else:
-                            return_str += f" - updated to {new_num}"
+                            return_str += f"  updated to {new_num}"
                             self.checks['warnings'] += 1
                     else:
                         detail = entry['content']['detail']
-                        return_str += f" - {detail}"
+                        return_str += f"  {detail}"
                         self.checks['errors'] += 1
                     results.append(return_str)
                     self.checks['total'] += 1
@@ -231,10 +231,10 @@ class OclcReport:
                     new_num = entry['content']['currentOclcNumber']
                     return_str = f"+{title}"
                     if old_num == new_num:
-                        return_str += f" - added"
+                        return_str += f"  added"
                         self.adds['success'] += 1
                     else:
-                        return_str += f" - updated to {new_num}"
+                        return_str += f"  updated to {new_num}"
                         detail = entry['content']['detail']
                         if detail:
                             return_str += f", {detail}"
@@ -288,10 +288,10 @@ class OclcReport:
                     new_num = entry['content']['currentOclcNumber']
                     return_str = f"-{title}"
                     if old_num == new_num:
-                        return_str += f" - deleted"
+                        return_str += f"  deleted"
                         self.dels['success'] += 1
                     else:
-                        return_str += f" - updated to {new_num}"
+                        return_str += f"  updated to {new_num}"
                         detail = entry['content']['detail']
                         if detail:
                             return_str += f", {detail}"

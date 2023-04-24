@@ -178,16 +178,16 @@ Send test OCLC numbers via the web service
 ... 850940364,
 ... 850940368, ]
 >>> o.check_institutional_holdings(test_check_records, configs, logger, False)
-?850939592 - Record confirmed
-?850939596 - Record confirmed
-?850939598 - Record confirmed
-?850939600 - Record confirmed
-?850939601 - Record confirmed
-?850939602 - Record confirmed
-?850940343 - Record confirmed
-?850940351 - Record confirmed
-?850940364 - Record confirmed
-?850940368 - Record confirmed
+?850939592  Record confirmed
+?850939596  Record confirmed
+?850939598  Record confirmed
+?850939600  Record confirmed
+?850939601  Record confirmed
+?850939602  Record confirmed
+?850940343  Record confirmed
+?850940351  Record confirmed
+?850940364  Record confirmed
+?850940368  Record confirmed
 operation 'check' results.
           succeeded: 10
            warnings: 0
@@ -198,8 +198,8 @@ operation 'check' results.
 ... 850939596,
 ... 850939592,]
 >>> o.add_holdings(test_add_records, configs, logger, False)
-+850939592 - added
-+850939596 - added
++850939592  added
++850939596  added
 operation 'add / set' results.
           succeeded: 2
            warnings: 0
@@ -211,8 +211,8 @@ Test deleting records
 ... 12345678,
 ... 1223334444,]
 >>> o.delete_holdings(test_del_records, configs, logger, False)
--12345678 - deleted
--1223334444 - deleted
+-12345678  deleted
+-1223334444  deleted
 operation 'delete / unset' results.
           succeeded: 2
            warnings: 0
