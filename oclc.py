@@ -142,7 +142,7 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
 #   list will consist of integers prefixed with either '+', '-'
 #   '?', or ' '.
 # param: debug writes diagnostic info to stdout if True.
-def write_master(
+def write_update_instruction_file(
     path:str, 
     master_list:list=[],
     add_list:list=[], 
@@ -174,15 +174,16 @@ def write_master(
 # param: debug writes diagnostic info to stdout if True.
 # return:
 def read_master(path:str='master.lst', debug:bool=True):
+    # Clear in case used from another switch.
+    add_list = []
+    del_list = []
+    check_list = []
+    done_list = []
     if exists(path) and getsize(path) > 0:
         if debug:
             print(f"checking {path} for OCLC numbers and processing instructions.")
         with open(path, encoding='utf-8', mode='r') as f:
-            # Clear in case used from another switch.
-            add_list = []
-            del_list = []
-            check_list = []
-            done_list = []
+            
             skipped = 0
             for temp in f:
                 number = temp.rstrip()  
@@ -415,6 +416,13 @@ def delete_holdings(
     print_tally('delete / unset', r_dict, logger)
     return done_list
 
+# Compares two lists and removes list two items from list one.
+def _cmp_lists_(l1:list, l2:list) -> list:
+    l1_dict = dict.fromkeys(l1, 1)
+    for oclc_num in l2:
+        if oclc_num in l1_dict:
+            l1_dict.pop(oclc_num)
+    return list(l1_dict.keys())
 
 # Main entry to the application if not testing.
 def main(argv):
@@ -425,7 +433,7 @@ def main(argv):
         description='Maintains holdings in OCLC WorldCat database.',
         epilog='See "-h" for help more information.'
     )
-    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+    parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
@@ -434,6 +442,17 @@ def main(argv):
     parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
     parser.add_argument('--update', action='store_true', default=False, help='Actually do the work set out in the --update_instructions file.')
     parser.add_argument('--update_instructions', action='store', help=f"File that contains instructions to update WorldCat.")
+    wl_msg = """ 
+    Computes the what is left to do in the master list based on what is in the receipt file. The master list is defined by the 
+    '--update_instructions' flag, while the receipt file is always named 'receipt.txt'. If the web service times out or you exceed 
+    quotas, you can use this to compare the two files and create a new master list. By default the master list is over-written 
+    with the remaining instructions, including any edits to the master list since the receipt was created. That is, if the script
+    created a receipt with '-11111111' as deleted, but the master list was later changed to '?11111111', the new check instruction
+    is preserved and written to the master list.
+
+    python oclc.py --whats_left --update_instructions=master.lst
+    """
+    parser.add_argument('--whats_left', action='store_true', help=f"{wl_msg}")
     parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
     parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
     args = parser.parse_args()
@@ -461,6 +480,7 @@ def main(argv):
         print(f"update: '{args.update_instructions}'")
         print(f"xml records: '{args.xml_records}'")
         print(f"yaml: '{args.yaml}'")
+        print(f"whats_left: {args.whats_left}")
         if 'addQuota' in configs:
             print(f"add quota: {configs['addQuota']}")
         else:
@@ -497,6 +517,30 @@ def main(argv):
     if args.check:
         check_holdings_lst = _read_num_file_(args.check, 'check', args.debug)
 
+    # Compute the difference between the master list and what the receipt list has done,
+    # then overwrite the master list.
+    if args.whats_left and args.update_instructions:
+        mset_lst, munset_lst, mcheck_lst, mdone_lst = read_master(args.update_instructions, debug=args.debug)
+        rset_lst, runset_lst, rcheck_lst, rdone_lst = read_master('receipt.txt', debug=args.debug)
+        # Check the master set and unset lists and remove the values from the receipt's set and unset lists 
+        # and output as the master file. 
+        logger.logit(f"updating {args.update_instructions} with work already done from 'receipt.txt'")
+        mset_lst   = _cmp_lists_(mset_lst, rset_lst)
+        logger.logit(f" leftover adds {len(mset_lst)}")
+        munset_lst = _cmp_lists_(munset_lst, runset_lst)
+        logger.logit(f" leftover deletes {len(munset_lst)}")
+        mcheck_lst = _cmp_lists_(mcheck_lst, rcheck_lst)
+        logger.logit(f" leftover checks {len(mcheck_lst)}")
+        mdone_lst  = _cmp_lists_(mdone_lst, rdone_lst)
+        logger.logit(f" leftover done list size: {len(mdone_lst)}")
+        write_update_instruction_file(path=args.update_instructions, 
+          add_list=mset_lst,
+          del_list=munset_lst,
+          check_list=mcheck_lst,
+          done_list=mdone_lst)
+        logger.logit(f"re-run script with new master list.")
+        sys.exit()
+
     # Reclamation report that is both files must exist and be read.
     if args.local and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
@@ -525,7 +569,7 @@ def main(argv):
             sys.stderr.write(f"DEBUG: done.\n")
             sys.stderr.write(f"DEBUG: writing {args.update_instructions}.\n")
         if args.update_instructions:
-            write_master(path=args.update_instructions, master_list=master_list)
+            write_update_instruction_file(path=args.update_instructions, master_list=master_list)
         else:
             sys.stderr.write(f"*warning, nothing written because you didn't use the --update_instructions flag.")
         if args.debug:
@@ -550,13 +594,14 @@ def main(argv):
                     set_holdings_lst = get_quota(set_holdings_lst, 'addQuota', configs)
                     done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
                     done_lst.extend(done)
-                write_master(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
+                write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
             else:
                 sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
         logger.logit('done', include_timestamp=True)
     except KeyboardInterrupt:
-        write_master(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
+        write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
         logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
+        logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
 
 # Returns a subset of the argument data list based on the quotas set 
 # for the type of data list. If the quota is not included in the configs, or if the

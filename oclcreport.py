@@ -29,13 +29,10 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 # Spec for Reporting
 # * Report how long the script ran.
 # * Report total hits and breakdown by operation.
-# * Checks should report the original sent and value returned by OCLC and if an update is required. Updating this information could be in a report that could be made available to CMA for record updating, but automating is out of scope for now.
+# * Checks should report the original sent and value returned by OCLC and if an update is required. 
+# Updating this information could be in a report that could be made available to CMA for record 
+# updating, but automating is out of scope for now.
 # * Adds and delete counts shall be reported along with any errors.
-# * The master list (receipt) shall be updated with what happened with either of the following.
-#   * ` - success` if everything went as planned.
-#   * ` - error [reason]`, on error output the error.
-#   * ` - pending` if the web service hit count exceeded quota
-#   * ` - old: [old], new: [new]` if the two numbers differ, and ` - success` if no change required.
 class OclcReport:
 
     def __init__(self, logger:Log, debug:bool=False):
@@ -72,7 +69,7 @@ class OclcReport:
             except KeyError as ex:
                 reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-            except TypeError:
+            except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"check failed!"
             self.logger.logit(msg, 'error')
@@ -138,7 +135,7 @@ class OclcReport:
             except KeyError as ex:
                 reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-            except TypeError:
+            except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"check failed!"
             self.logger.logit(msg, 'error')
@@ -183,24 +180,7 @@ class OclcReport:
         self.logger.logem(results)
         return b_result
 
-    # The oclc_nums_sent looks like: '850939592,850939596'
-    # Success
-    # -------
-    # {
-    #   "entries": [
-    #     {
-    #       "title": "44321120",
-    #       "content": {
-    #         "requestedOclcNumber": "44321120",
-    #         "currentOclcNumber": "37264396",
-    #         "institution": "OCWMS",
-    #         "status": "HTTP 403 Forbidden",
-    #         "detail": "Unauthorized 040 $c symbol for pilot modification.",
-    #         "id": "http://worldcat.org/oclc/37264396"
-    #       },
-    #       "updated": "2015-04-02T14:52:00.852Z"
-    #     },
-    #  ...
+    # Parses the response from the OCLC set holdings request.
     def set_response(self, 
       code:int, 
       json_data:dict,
@@ -213,7 +193,7 @@ class OclcReport:
             except KeyError as ex:
                 reported_error = f"JSON: {json_data}"
                 msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
-            except TypeError:
+            except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"set failed!"
             self.logger.logit(msg, 'error')
@@ -231,10 +211,10 @@ class OclcReport:
                     new_num = entry['content']['currentOclcNumber']
                     return_str = f"+{title}"
                     if old_num == new_num:
-                        return_str += f"  added"
+                        return_str += f"  added. See http://worldcat.org/oclc/{old_num}"
                         self.adds['success'] += 1
                     else:
-                        return_str += f"  updated to {new_num}"
+                        return_str += f"  updated to {new_num}. See http://worldcat.org/oclc/{new_num}"
                         detail = entry['content']['detail']
                         if detail:
                             return_str += f", {detail}"
@@ -268,7 +248,7 @@ class OclcReport:
             except KeyError as ex:
                 reported_error = f"JSON: {json_data}"
                 msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
-            except TypeError:
+            except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"delete failed!"
             self.logger.logit(msg, 'error')
@@ -311,7 +291,7 @@ class OclcReport:
         self.logger.logem(results)
         return b_result
 
-
+    # Parses an expected (XML) web service result.  
     def create_bib_response(self, response, debug:bool=False):
         # Should see this in the response.
         # <controlfield tag="004">99999999999999999999999</controlfield>
