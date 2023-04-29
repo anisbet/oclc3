@@ -2,7 +2,10 @@
 # This script will parse any length of file containing flat catalog data
 # and produce a list of 001, TCN and 035 OCoLC numbers, in pipe-delimited format.
 # The script also removes records with 250 that says 'Expected release' as
-# EPL does not want those records going to OCLC.
+# EPL does not want those records going to OCLC. The result is a master list of 
+# all the cat keys, 035 OCLC numbers and Flexkeys on one line as follows.
+# cat_key | TCN  | OCLC_num
+
 BEGIN {
  FS = "|"
  all035s = "";
