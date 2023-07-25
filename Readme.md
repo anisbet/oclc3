@@ -1,21 +1,23 @@
 # OCLC Holdings Management
 
-`oclc` is a Python application to manage library holdings in OCLC's [WorldCat discovery](https://www.worldcat.org/) database through [WorldCat Metadata web services](https://www.oclc.org/developer/develop/web-services.en.html). [See here for more information](#regular-worldcat-maintenance).
+`oclc.py` is a Python application that synchronizes your library's holdings with OCLC's [WorldCat](https://www.oclc.org/en/worldcat.html) discovery service.
 
-There are three operations that are basic to maintaining a record of catalog holdings for your library. At a basic level you need to let OCLC know what records you have added, what you have modified, and what you have removed from your collection.
+There are two ways to maintain holdings at OCLC, [batch process](#batch-process) and [web services](#worldcat-metadata-web-service).
 
-Previously our library used a batch process. A script ran weekly and collected all the added and modified records from the previous week, format them into MARC, and upload them to an SFTP site. That's the easy part.
+### Batch Process
+Previously our library used a batch process. A script ran weekly and collected all the added and modified records from the previous week, formatted them into MARC, and uploaded them to an SFTP site. One challenge of this process is identifying what records have been deleted since they are no longer in the catalog. An additional challenge is that OCLC regularly updates their catalog numbers, and there was no way to feedback this information to the ILS.
 
-The harder part is identifying what records have been deleted; tricky since the records are gone, so there is no way to search in the database.
+### WorldCat Metadata Web Service
+A better way to synchronize OCLC holdings is by the [WorldCat MetaData API](https://developer.api.oclc.org/wc-metadata-v2?_gl=1*dpl1t0*_gcl_au*MTg2OTUyMTM2LjE2OTAzMTQzODg.). By adding (`set`ting) and deleting (`unset`ting) your OCLC numbers your titles will appropriately show or not show up in customer searches in [WorldCat](https://www.oclc.org/en/worldcat.html). 
 
-To find the deleted records the script would scour the history (Symphony) logs looking for deletion and create a simplified CSV file to OCLC's specification, and upload that as well.
+The basic steps are [Generate a CSV report](#reclamations-instructions) of your OCLC holdings from the self-service portal. This will be the _remote_ list. [Create a  list of your library's collection](#library-records) called the _local_ list. Use `oclc.py` to analyse both lists and produce a report which serves as both documentation and instructions on how to synchronize OCLC holdings to your collection.  
 
-When using WorldCat MetaData API you mearly find the OCLC numbers from the records in your catalog and then submit a set request to OCLC to indicate your library has that record as a holding in OCLC parlance. The same process is used for updates, and ditto for deletes. No SFTP-ing large files.
+[To get started you will need API keys](#requesting-web-services-keys).
 
-## Requesting Web Services Keys
-you can get info about keys [from this link](https://www.oclc.org/developer/api/keys.en.html) and [request keys here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost) after entering your institution's symbol.
+# Requesting Web Services Keys
+To use the OCLC WorldCat Metadata API you will need authentication keys. Members with an institution symbol [can apply for keys here](https://authn.sd00.worldcat.org/wayf/metaauth-ui/cmnd/protocol/samlpost) and can [find more information about keys here](https://www.oclc.org/developer/api/keys.en.html).
 
-# Spec for Reporting
+## Logs
 * Report how long the script ran.
 * Report total hits and breakdown by operation.
 * Checks should report the original sent and value returned by OCLC and if an update is required. Updating this information could be in a report that could be made available to CMA for record updating, but automating is out of scope for now.
@@ -23,10 +25,10 @@ you can get info about keys [from this link](https://www.oclc.org/developer/api/
 * The master list (receipt) shall be updated with what happened with either of the following.
   * ` - success` if everything went as planned.
   * ` - error [reason]`, on error output the error.
-  * ` - pending` if the web service hit count exceeded [quota](#web-service-quotas). See also [this section](#testing) for examples of how to set quotas.
+  * ` - pending` if the web service hit count exceeded [quota](#web-service-quotas). See also [this section](#yaml-configuration) for examples of how to set quotas.
   * ` - updated [new]` if the two numbers differ, and ` - success` if no change required.
 
-## Testing
+# Yaml Configuration
 The application is controlled by a YAML file which contains the following values.
 ```yaml
 # Setting oclc3 uses, 
@@ -51,7 +53,7 @@ database:
   del_table_name: 'deleted' # Table name - can be (almost) anything you like.
 ```
 Once set up the script can be run from the command line as follows.
-### Help
+## Help
 ```bash
 # For help use...
 python oclc.py --help
@@ -105,7 +107,7 @@ See [this section on reclamation](#reclamations-instructions) for more informati
 ```bash
 # Perform reclamation-like operation on OCLC's production database. 
 python oclc.py --yaml=production.yaml --remote oclc_reported_holdings.lst --local our_current_holdings.lst
-python oclc.py --update_instructions=master.lst --yaml=production.yaml 
+python oclc.py --update_instructions=master.lst --update --yaml=production.yaml 
  ...
 ```
 
@@ -138,7 +140,7 @@ If the library weeds the title from their collection they update OCLC by **unset
 
 Any unique title the library possesses can be uploaded as a *local holding* by submitting their catalog record(s) as MARC21 XML.
 
-The **oclc3.py** script allows for the maintenance of holdings at OCLC by supporting each of these functions.
+The **oclc.py** script allows for the maintenance of holdings at OCLC by supporting each of these functions.
 1) Setting holdings - which, when using the old batch process, where known as *updates* and *creates*.
 2) Unsetting holdings - Also known as *deletes* in batch processing.
 3) Local Holdings Submission - Previously this was simply covered by the *creates* and *updates* in the batch process.
@@ -150,7 +152,7 @@ The result is sometimes titles didn't get unset, and customers would get upset t
 
 To fix the mismatch of library's holdings OCLC offers a **reclamation** service. At the library's request and a cost of a few thousands of dollars, OCLC will purge all the holdings for a library and the library submits a complete new set.
 
-To remediate this expense and improve customer service ```oclc3``` can run a reclamation process.
+To remediate this expense and improve customer service `oclc.py` can run a reclamation process.
 
 ## Notes on OCLC Number Lists
 The specification for a valid list of OCLC numbers is as follows.
@@ -174,6 +176,9 @@ Each of the operations of `check`, `add`, and `delete` can have applied quotas w
 With a quota set, once the limit is reached the `master.lst` is updated with the remaining instructions to do when the script is restarted.
 
 ## Example of a Number List
+The following illustrates the types of strings that `oclc.py` can read and how they will be interpreted.
+
+
 ```bash
 +123456 Treasure Isl... # The record 123456 will be added when '--set' is used.
 123456 Treasure Isla... # Added when using '--set' and deleted if using `--unset`.
@@ -214,23 +219,26 @@ Random text on a line   # Ignored.
    1) Records that OCLC are missing are marked with `+`.
    2) Records that OCLC has but your library no longer has are marked with `-`.
    3) Records that don't need attention start with a space (` `).
-9) **TODO: confirm!** Use the `master.lst` with the `--update` flag and `oclc.py` will use these instructions to operate the OCLC web service. The order of operations are as follows.
+   4) Lines that start with `?` indicate that the OCLC number should be confirmed.
+9) Use the `--update_instructions=master.lst` as the instruction file and `--update` flag to actually do the work. The order of operations are as follows.
    1)  Checks
    2)  Deletes
    3)  Adds
 
 ## Library Records
+The Sympony API to collect data for submission to OCLC is listed below.
 ```bash
 selitem \ 
 -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" \ 
 -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" \ 
 -oC 2>/dev/null | sort | uniq >catkeys.wo_types.wo_locations.lst 
 cat catkeys.wo_types.wo_locations.lst | catalogdump -kf035 -of | nowrap.pl | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >all_records.flat
-# We'll use the flat file later to make any XML required to add records if needed.
+# We'll use the flat file later to back reference the OCLC numbers to
+# specific MARC records and make any local XML records if needed.
 awk -F"\|a" '{ if ($2 ~ /\(OCoLC\)/) { oclcnum = $2; gsub(/\(OCoLC\)/, "", oclcnum); print oclcnum; }}' all_records.flat >librarynumbers.txt
 ```
 
-Once done use ```oclc3.py``` script's **TODO: which switch??** can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, and a ` ` indicates nothing needs to be done.
+Once done use ```oclc.py``` script's **TODO: which switch??** can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, `?` means check the number, and a ` ` indicates nothing needs to be done.
 
 ## Complete Mixed selection shell commands
 That is titles that have been modified (-r) or created (-p) since 90-days ago.
@@ -242,7 +250,51 @@ cat mixed.catkeys.90d.lst | sort | uniq >mixed.catkeys.90d.uniq.lst
 cat mixed.catkeys.90d.uniq.lst | catalogdump -kf035 -of | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >flat.wo.onorder.lst
 cat flat.wo.onorder.lst | flatskip -if -aMARC -om >mixed.mrc
 ```
+# Updating the Library's Catalog Records
+When `oclc.py` runs it produces a log with contains important feedback from OCLC. One of the most useful pieces of information pertains to update instructions. The log file can be parsed and the input FLAT file modified to reflect how submitted OCLC numbers have been updated.
 
+`updateFlatRecord.awk` will update all `035` tags that include OCLC data. 
+Because `035` tags are repeatable and sometimes a record can contain
+multiple `035` tags with conflicting OCLC numbers, each one of them
+is modified to have the new number and a subfield 'z' of the old
+numbers. All additional non-`035` tags are output unmolested.
+Example of calling the script on the command line is as follows. Given
+the following arbitrary but specific FLAT MARC record file:
+```bash
+*** DOCUMENT BOUNDARY ***
+FORM=MUSIC               
+.000. |ajm7i0n a         
+.001. |aon1347755731     
+.596.   |a1
+.035.   |a(OCoLC)987654321
+.035.   |a(Sirsi) 111111111
+.035.   |a(OCoLC)77777777
+```
+
+Given that a web response log produced by oclc3.py, OCLC reports the following:
+```
++1002126265  updated to 970392037, Record not found for holdings operation
++1005006688  added
++ ... 
+```
+
+From the first line of the report:
+```
++1002126265  updated to 970392037, Record not found for holdings operation
+```
+we know that the new number is '970392037', and replaces the number 
+from the catalog '1002126265'.
+```bash
+awk -v NEW_OCLC_NUMBER="(OCoLC)970392037" -f makeslimMARC.awk test.flat
+*** DOCUMENT BOUNDARY ***
+FORM=MUSIC               
+.000. |ajm7i0n a         
+.001. |aon1347755731     
+.596.   |a1
+.035.   |a(OCoLC)970392037|z(OCoLC)987654321
+.035.   |a(Sirsi) 111111111
+.035.   |a(OCoLC)970392037|z(OCoLC)77777777
+```
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first

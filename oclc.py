@@ -29,14 +29,16 @@ from log import Log
 from flat2marcxml import MarcXML
 
 #######test#########
-# TEST = True
+TEST = True
 #######test#########
 #######prod#########
-TEST = False
+# TEST = False
 #######prod#########
-VERSION='1.03.01'
+VERSION='1.03.02'
 
-# OCLC number search regexes
+# OCLC number search regexes. Lines that start with '+' mean add
+# the record, '-' means delete, and '?' means check the number. 
+# Neither of these characters or a space mean ignore the line.
 OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
 OCLC_DEL_MATCHER = re.compile(r'^[\-]?(\d|\(OCoLC\))?\d+\b(?!\.)')
 OCLC_CHK_MATCHER = re.compile(r'^[?]?(\d|\(OCoLC\))?\d+\b(?!\.)')
@@ -63,19 +65,19 @@ def _load_yaml_(yaml_path:str) -> dict:
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
 def _find_set_(line:str):
-    matches = re.search(OCLC_ADD_MATCHER, line)
-    if matches:
-        num_match = re.search(NUM_MATCHER, line)
-        return num_match[0]
+    add_matches = re.search(OCLC_ADD_MATCHER, line)
+    if add_matches:
+        oclc_num_match = re.search(NUM_MATCHER, line)
+        return oclc_num_match[0]
 
 # Find unset values in a string. 
 # param: line str to search. 
 # return: The matching OCLC number or nothing if no match.
 def _find_unset_(line):
-    matches = re.search(OCLC_DEL_MATCHER, line)
-    if matches:
-        num_match = re.search(NUM_MATCHER, line)
-        return num_match[0]
+    del_matches = re.search(OCLC_DEL_MATCHER, line)
+    if del_matches:
+        oclc_num_match = re.search(NUM_MATCHER, line)
+        return oclc_num_match[0]
 
 # Find oclc numbers that need checking. 
 # param: line str from OCLC number list file. 
@@ -137,11 +139,17 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
     return nums
 
 # Write out the master list. Do not append, delete if exists.
-# param: path string of the master list. Default 'master.lst'.
+# param: path string file name.
 # param: list of oclc numbers to write to the master file. The 
 #   list will consist of integers prefixed with either '+', '-'
-#   '?', or ' '.
+#   '?', '!', or ' '.
+# param: add_list: List of numbers to add or set as holdings.   
+# param: del_list: List of numbers to unset or delete as holdings. 
+# param: check_list: List of numbers for OCLC to confirm.
+# param: done_list: Used to avoid identify numbers that have been processed
+#    and should not be resubmitting via the API. 
 # param: debug writes diagnostic info to stdout if True.
+# return: none
 def write_update_instruction_file(
     path:str, 
     master_list:list=[],
@@ -167,12 +175,17 @@ def write_update_instruction_file(
 
 # Reads the master list of instructions. The master list is created by a
 # either '--set', '--unset', or the combination of '--local' and '--remote'.
-# param: path of the master list. String.
+# 
+# The file is expected to consist of integers, one-per-line that are preceeded by 
+# '+' indicating set, '-' unset, '?' confirm, '!' completed, or ' ' ignore.
+#   
+# param: path the master list file name. Default 'master.lst'.
 # param: list of oclc numbers to add. The list is just integers.
 # param: list of oclc numbers to delete. List of integers.
-# param: list of oclc numbers to check. Ditto integers.
+# param: list of oclc numbers to check. Ditto integers. 
+# param: done_list: List of OCLC numbers that have already been submitted.
 # param: debug writes diagnostic info to stdout if True.
-# return:
+# return: a set of lists; add_list, del_list, check_list, done_list. 
 def read_master(path:str='master.lst', debug:bool=True):
     # Clear in case used from another switch.
     add_list = []
@@ -207,6 +220,9 @@ def read_master(path:str='master.lst', debug:bool=True):
     return add_list, del_list, check_list, done_list
 
 # Used for reporting percents.
+# param: value float value.
+# param: prec integer precision of the returned float. 
+# return: float value of requested precision.  
 def trim_decimals(value, prec:int=2) ->float:
     f_str = f"%.{prec}f"
     return float(f_str % round(float(value), prec))
@@ -215,6 +231,7 @@ def trim_decimals(value, prec:int=2) ->float:
 # and which need no change.
 # param:  List of oclc numbers to delete or unset.
 # param:  List of oclc numbers to set or add. 
+# return: List of OCLC integer numbers preceeded by instruction character.  
 def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log=None, debug:bool=False) -> list:
     # Store uniq nums and sign.
     ret_dict = {}
@@ -241,7 +258,9 @@ def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log=None, debug:bool=
             d_count += 1
         elif sign == '+':
             a_count += 1
-        else: # This includes ' ' and '!' if that is possible in a diff statement.
+        else: 
+            # This includes ' ', '?' and '!' because they 
+            # are irrelevant in difference comparisons.
             nc_count += 1
         ret_list.append(f"{sign}{num}")
     total = len(ret_list)
@@ -272,6 +291,7 @@ def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log=None, debug:bool=
 # param: Remaining records, count of records that didn't get processed. This 
 #   can be non-zero if the web service is interupted or you exceed quota of 
 #   web service calls.
+# return: none
 def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
     msg =  f"operation '{action}' results.\n"
     msg += f"          succeeded: {tally['success']}\n"
@@ -498,6 +518,7 @@ def main(argv):
     # Upload XML MARC21 records.
     if args.xml_records:
         # TODO: Waiting for OCLC to respond with answers to why the XML throws an error. 
+        print(f"*warning, the request to upload local XML records is currently not supported.")
         pass
     
     # Two lists, one for adding holdings and one for deleting holdings. 
