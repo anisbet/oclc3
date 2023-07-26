@@ -40,7 +40,8 @@ cat /tmp/catkeys.wo_types.wo_locations.lst |
 catalogdump -kf035 -of 2>/dev/null | 
 nowrap.pl | 
 grep -v -i -e '\.250\.[ \t]+\|aExpected release' >all_records.flat
-# We'll use the flat file later to make any XML required to add records if needed.
+# We'll use the flat file later to make a slim file for overlaying updates
+# and any XML required to add local records if needed.
 logit "Distilling list of OCLC numbers"
 awk -F"|a" '{ if ($2 ~ /\(OCoLC\)/) { oclcnum = $2; gsub(/\(OCoLC\)/, "", oclcnum); print oclcnum; }}' all_records.flat >librarynumbers.txt
 logit "All the records can be found in 'all_records.flat' and the OCLC numbers in 'librarynumbers.txt'"

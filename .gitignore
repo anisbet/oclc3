@@ -4,12 +4,16 @@ response.json
 curlAPI.sh
 *.yaml
 oclc/
+Docs/
+analysis/
 lib/__pycache__/
 __pycache__/
 *.json
 *.sqlite
 *.xml
 *.db
+*.txt
+*.bak
 test.py
 test_data/
 data/

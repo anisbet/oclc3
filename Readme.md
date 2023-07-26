@@ -28,7 +28,7 @@ To use the OCLC WorldCat Metadata API you will need authentication keys. Members
   * ` - pending` if the web service hit count exceeded [quota](#web-service-quotas). See also [this section](#yaml-configuration) for examples of how to set quotas.
   * ` - updated [new]` if the two numbers differ, and ` - success` if no change required.
 
-# Yaml Configuration
+## Yaml Configuration
 The application is controlled by a YAML file which contains the following values.
 ```yaml
 # Setting oclc3 uses, 
@@ -226,6 +226,7 @@ Random text on a line   # Ignored.
    3)  Adds
 
 ## Library Records
+**TODO Check this over. The code below only removes the 250 tags not the on order records themselves.**
 The Sympony API to collect data for submission to OCLC is listed below.
 ```bash
 selitem \ 
@@ -238,9 +239,10 @@ cat catkeys.wo_types.wo_locations.lst | catalogdump -kf035 -of | nowrap.pl | gre
 awk -F"\|a" '{ if ($2 ~ /\(OCoLC\)/) { oclcnum = $2; gsub(/\(OCoLC\)/, "", oclcnum); print oclcnum; }}' all_records.flat >librarynumbers.txt
 ```
 
-Once done use ```oclc.py``` script's **TODO: which switch??** can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, `?` means check the number, and a ` ` indicates nothing needs to be done.
+Once done use `oclc.py` script's `--local` can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, `?` means check the number, and a ` ` indicates nothing needs to be done.
 
 ## Complete Mixed selection shell commands
+**TODO Check this over. The code below only removes the 250 tags not the on order records themselves.**
 That is titles that have been modified (-r) or created (-p) since 90-days ago.
 ```bash
 selitem -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" -oC 2>/dev/null | sort | uniq >catkeys.no_t.no_l.lst 
@@ -251,15 +253,10 @@ cat mixed.catkeys.90d.uniq.lst | catalogdump -kf035 -of | grep -v -i -e '\.250\.
 cat flat.wo.onorder.lst | flatskip -if -aMARC -om >mixed.mrc
 ```
 # Updating the Library's Catalog Records
-When `oclc.py` runs it produces a log with contains important feedback from OCLC. One of the most useful pieces of information pertains to update instructions. The log file can be parsed and the input FLAT file modified to reflect how submitted OCLC numbers have been updated.
+The `oclc.py` log file can be used to update the library's ILS bib records.
 
-`updateFlatRecord.awk` will update all `035` tags that include OCLC data. 
-Because `035` tags are repeatable and sometimes a record can contain
-multiple `035` tags with conflicting OCLC numbers, each one of them
-is modified to have the new number and a subfield 'z' of the old
-numbers. All additional non-`035` tags are output unmolested.
-Example of calling the script on the command line is as follows. Given
-the following arbitrary but specific FLAT MARC record file:
+The `makeSlimMard.awk` will convert the original flat records (used to generate the `--local` list) into a slim-FLAT file that `oclc.py` can edit, adding the updated OCLC numbers. The modified slim file can then be used with Symphony's `catalogmerge` API command to update the ILS.
+
 ```bash
 *** DOCUMENT BOUNDARY ***
 FORM=MUSIC               
@@ -270,31 +267,55 @@ FORM=MUSIC
 .035.   |a(Sirsi) 111111111
 .035.   |a(OCoLC)77777777
 ```
+Gets converted using the command line below.
 
-Given that a web response log produced by oclc3.py, OCLC reports the following:
-```
-+1002126265  updated to 970392037, Record not found for holdings operation
-+1005006688  added
-+ ... 
-```
-
-From the first line of the report:
-```
-+1002126265  updated to 970392037, Record not found for holdings operation
-```
-we know that the new number is '970392037', and replaces the number 
-from the catalog '1002126265'.
 ```bash
-awk -v NEW_OCLC_NUMBER="(OCoLC)970392037" -f makeslimMARC.awk test.flat
+awk -f makeSlimMarc.awk all_records.flat >all_records_slim.flat
+cat all_records_slim.flat
 *** DOCUMENT BOUNDARY ***
-FORM=MUSIC               
-.000. |ajm7i0n a         
+FORM=MUSIC                      
 .001. |aon1347755731     
-.596.   |a1
-.035.   |a(OCoLC)970392037|z(OCoLC)987654321
+.035.   |NEW_OCLC_NUMBER|z(OCoLC)987654321
 .035.   |a(Sirsi) 111111111
-.035.   |a(OCoLC)970392037|z(OCoLC)77777777
+.035.   |NEW_OCLC_NUMBER|z(OCoLC)77777777
+  ...
 ```
+
+**TODO Finish this documentation after design is complete.**
+
+Once done we can use `catalogmerge` to update the bib record with the data from the slim file with the following.
+
+```bash
+# -if flat ascii records will be read from standard input.
+# -aMARC (required) specifies the format of the record.
+# -b is followed by one option to indicate how bib records will be matched
+#       for update.
+#     c matches on the internal catalog key.
+#     f(default) matches on the flexible key.
+#     n matches on the call number key.
+# -d delete all existing occurrences of entries being merged.
+# -f is followed by a list of options specifying how to use the flexible key.
+#    g use the local number as is (001). *TCN*
+# -r reorder record according to format.
+# -l Use the format to determine the tags to be merged. If the tag is
+#      marked as non-repeatable, do not merge if the Symphony record contains
+#      the tag. If the tag is non-repeatable, and the Symphony record does not
+#      contain the tag, merge the tag into Symphony. If the tag is marked as
+#      repeatable, the tag will be merged. This option is not valid if
+#      the '-t' is used. If this '-t' is not used, this option is required.
+#  == or ==
+# -t list of entry id's to merge. This option is not valid if the '-l' is
+#      used. If the '-l' is not specified, the '-t' is required.
+
+cat oclc_updated.flat | catalogmerge -if -aMARC -bf -fg -d -r -t035  oclc_update_20230726.err >oclc_update_20230726.lst
+```
+Alternatively the `catalogmerge` command can take `-l` as described above, but then the `-t` can't be used. If you don't use `-t` you must use `-d`.
+
+```bash
+# Try this but the previous will probably work better.
+cat oclc_updated.flat | catalogmerge -if -aMARC -bf -fg -d -r -l oclc_update_20230726.err >oclc_update_20230726.lst
+```
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first
