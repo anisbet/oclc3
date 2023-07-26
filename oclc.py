@@ -456,6 +456,16 @@ def main(argv):
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
+    flat_msg = """
+    Use a flat file of the bib records collected from the library\'s ILS instead of going to the trouble of making a '--local' file list.
+    Once the process runs, this flat file will be modified and converted into a slim flat file ready for use by Symphony's 'catalogmerge'
+    API command. Only records that require updated OCLC numbers will be output. The records that require updating will contain all 
+    document headers, a 001 flexkey as matchpoint, and ALL 035 tags. The OCLC 035 tags will be modified to include new OCLC numbers in
+    the 'a' field and the old OCLC number in the 'z' sub-field. 
+
+    You cannot use '--local' and '--flat'.
+    """
+    parser.add_argument('-f', '--flat', action='store', metavar='[/foo/bibs.flat]', help=f"{flat_msg}")
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
@@ -493,6 +503,7 @@ def main(argv):
         print(f"== vars ==")
         print(f"check: '{args.check}'")
         print(f"debug: '{args.debug}'")
+        print(f"flat: '{args.flat}'")
         print(f"local: '{args.local}'")
         print(f"remote: '{args.remote}'")
         print(f"set: '{args.set}'")
@@ -561,6 +572,9 @@ def main(argv):
           done_list=mdone_lst)
         logger.logit(f"re-run script with new master list.")
         sys.exit()
+
+    # TODO: Add flat.py and code to use the flat input instead of a --local list of OCLC numbers.
+    
 
     # Reclamation report that is both files must exist and be read.
     if args.local and args.remote:
@@ -638,22 +652,6 @@ def main(argv):
 #   an integer value.
 # return: A subset of the data list which contains the quota of elements (OCLC numbers).   
 def get_quota(data:list, quota:str, configs:dict):
-    """ 
-    >>> l = ['0','1','2','3',]
-    >>> USE_QUOTAS = True
-    >>> configs = {'checkQuota': 2}
-    >>> get_quota(l,'checkQuota',configs)
-    ['0', '1']
-    >>> configs = {'checkQuota': -1}
-    >>> get_quota(l,'checkQuota',configs)
-    ['0', '1', '2']
-    >>> configs = {'checkQuota': 1000}
-    >>> get_quota(l,'checkQuota',configs)
-    ['0', '1', '2', '3']
-    >>> configs = {'wrongQuota': 5}
-    >>> get_quota(l,'checkQuota',configs)
-    ['0', '1', '2', '3']
-    """
     if quota in configs:
         last_record = configs[quota]
         if isinstance(last_record, int):

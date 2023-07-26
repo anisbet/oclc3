@@ -332,3 +332,19 @@ Test write master
 >>> dels = [33333333,4444444444,]
 >>> done = [10000,20000,30000,40000]
 >>> o.write_update_instruction_file(path='receipt_test.txt', add_list=adds, del_list=dels, check_list=chks, done_list=done)
+
+
+>>> l = ['0','1','2','3',]
+>>> USE_QUOTAS = True
+>>> configs = {'checkQuota': 2}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1']
+>>> configs = {'checkQuota': -1}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1', '2']
+>>> configs = {'checkQuota': 1000}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1', '2', '3']
+>>> configs = {'wrongQuota': 5}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1', '2', '3']
