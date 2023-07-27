@@ -23,7 +23,7 @@ class Log:
         else:
             msg = f"{time_str}{message}"
             sys.stdout.write(f"{msg}\n")
-        with open(self.log, encoding='utf-8', mode='a') as log:
+        with open(self.log, encoding='ISO-8859-1', mode='a') as log:
             log.write(f"{msg}\n")
         log.close()
 
@@ -35,7 +35,7 @@ class Log:
         time_str = ''
         if include_timestamp:
             time_str = f"[{datetime.now().strftime(self.date_format)}] "
-        with open(self.log, encoding='utf-8', mode='a') as log:
+        with open(self.log, encoding='ISO-8859-1', mode='a') as log:
             if level == 'error':
                 for message in messages:
                     msg = f"{time_str}*error, {message}"

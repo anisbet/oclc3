@@ -114,7 +114,7 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
         return nums
 
     # Read in a list of OCLC numbers to set.
-    with open(num_file, encoding='utf8', mode='r') as f:
+    with open(num_file, encoding='ISO-8859-1', mode='r') as f:
         for l in f:
             line = l.rstrip()
             if set_unset == 'set':
@@ -158,7 +158,7 @@ def write_update_instruction_file(
     check_list:list=[], 
     done_list:list=[],
     debug:bool=True):
-    with open(path, encoding='utf8', mode='w') as f:
+    with open(path, encoding='ISO-8859-1', mode='w') as f:
         if master_list:
             for holding in master_list:
                 f.write(f"{holding}\n")
@@ -195,7 +195,7 @@ def read_master(path:str='master.lst', debug:bool=True):
     if exists(path) and getsize(path) > 0:
         if debug:
             print(f"checking {path} for OCLC numbers and processing instructions.")
-        with open(path, encoding='utf-8', mode='r') as f:
+        with open(path, encoding='ISO-8859-1', mode='r') as f:
             
             skipped = 0
             for temp in f:

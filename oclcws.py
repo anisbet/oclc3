@@ -146,7 +146,7 @@ class OclcService:
             if self.debug == True:
                 self.logger.logit(f"getting new auth token, expiry: {expiry_deadline}")
         # Cache the results for repeated testing.
-        with open(TOKEN_CACHE, 'w', encoding='utf-8') as f:
+        with open(TOKEN_CACHE, 'w', encoding='ISO-8859-1') as f:
             # Use json.dump for streams files, or sockets and dumps for formatted strings.
             json.dump(self.auth_json, f, ensure_ascii=False, indent=2)
         return self.auth_json['access_token']
