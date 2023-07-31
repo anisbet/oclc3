@@ -21,9 +21,11 @@ import sys
 import re
 from os.path import exists
 
+IS_TEST = False
+
 # This class will take a flat file and stream or collect all the DOCUMENT, FORM
 # sentenials, the 001, and all 035 tags. When an OCLC tag is encountered it will
-# be assumed to be a set record, and the web service will be called. 
+# be assumed to be a set record. 
 # 
 # If the number was set successfully the record will be discarded. If the 
 # response contains an updated the record will be modified, and concatinated 
@@ -38,12 +40,33 @@ class Flat:
             sys.stderr.write(f"*error, no such flat file: '{self.flat}'.\n")
         # Read FLAT file record by record.
         # Store the slim bib record as follows 
-        # {'form': 'FORM=MUSIC', 
-        # 'tcn': 'on123456', 
-        # 'oclc': '1234567', 
-        # '035': ["(SIRSI) 035_0", "(OCM) 035_1", ...]}
+        # {'1234567':{
+        #   'reject': False,
+        #   'form': 'FORM=MUSIC', 
+        #   'tcn': 'on123456', 
+        #   'oclc': '1234567', 
+        #   '035': ["(SIRSI) 035_0", "(OCM) 035_1", ...]},
+        # ...}
         self.slim_bib_records = self._read_bib_records_(self.flat)
-        # print(f"{self.slim_bib_records}")
+        if IS_TEST:
+            print(f"{self.slim_bib_records}")
+
+    # Tests the necessary conditions of a well-formed slim record.
+    # Those conditions are; it must have a '001', an OCLC number,
+    # it must not be empty, and it must have a form identifier.
+    # param: record:dict if empty a 'reject' value of True is added,
+    #   and any other missing pieces update the 'reject' field of 
+    #   the record. 
+    # return: True if the record is well formed and False otherwise.   
+    def _is_wellformed_(self, record:dict):
+        if not record:
+            return False
+        elif not record.get('form'):
+            return False
+        elif not record.get('001'):
+            return False
+        else:
+            return True
 
     # Reads a single bib record
     def _read_bib_records_(self, flat):
@@ -53,7 +76,7 @@ class Flat:
         zero_three_five   = re.compile(r'^\.035\.\s+')
         oclc_num_matcher  = re.compile(r'\(OCoLC\)')
         record  = {}
-        records = []
+        records = {}
         with open(flat, encoding='ISO-8859-1', mode='r') as f:
             line_num = 0
             # If there is no OCLC number in the record don't store the bib and issue a warning
@@ -62,9 +85,8 @@ class Flat:
             # form of clean up will be done.
             oclc_num_count = 0
             # This is the number of records read from the flat file.
-            records_read   = 0
-            my_flexkey     = ''
-            zero_three_five_list = []
+            records_read = 0
+            oclc_number = ''
             for l in f:
                 line_num += 1
                 line = l.rstrip()
@@ -75,22 +97,19 @@ class Flat:
                     if self.debug:
                         print(f"DEBUG: found document boundary on line {line_num}")
                     # close previous record if open, and open new record
-                    if len(record) > 0:
-                        if oclc_num_count < 1:
-                            print(f"*warning, ({my_flexkey}) contains no OCLC number and will be ignored.")
-                            record = {}
-                            oclc_num_count = 0
-                            zero_three_five_list.clear()
-                            continue
+                    if self._is_wellformed_(record):
                         if oclc_num_count > 1:
-                            print(f"*warning, ({my_flexkey}) contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
-                        record['035'] = zero_three_five_list
-                        records.append(record)
-                        record = {}
-                        zero_three_five_list.clear()
-                        oclc_num_count = 0
-                    # TODO: Add this on output but don't save it, it's always the same text.
-                    # record['document_boundary'] = line
+                            print(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
+                        if oclc_number:
+                            records[str(oclc_number)] = record
+                        else:
+                            print(f"*warning, rejecting TCN {record['001']} as malformed; possibly missing OCLC number.")
+                    record = {}
+                    record['001'] = ''
+                    record['form'] = ''
+                    record['035'] = []
+                    oclc_number = ''
+                    oclc_num_count = 0
                     continue
                 # FORM=MUSIC 
                 if re.search(form_sentinal, line):
@@ -101,34 +120,46 @@ class Flat:
                     continue
                 # .001. |aon1347755731  
                 if re.search(tcn, line):
-                    my_flexkey = line.split("|a")[1]
-                    record['tcn'] = my_flexkey
+                    record['001'] = line.split("|a")[1]
                     if self.debug:
-                        print(f"DEBUG: found TCN ({my_flexkey}) on line {line_num}")
+                        print(f"DEBUG: found TCN {record['001']} on line {line_num}")
                     continue
+                # TODO: Add configurable tag and value rejection functionality. Like '250': 'On Order' = 'reject': True.
                 # .035.   |a(OCoLC)987654321
                 # .035.   |a(Sirsi) 111111111
                 if re.search(zero_three_five, line):
                     # If this has an OCoLC then save as a 'set' number otherwise just record it as a regular 035.
                     if re.search(oclc_num_matcher, line):
                         oclc_num_count += 1
-                        record['oclc'] = line.split("|a(OCoLC)")[1]
+                        oclc_number = line.split("|a(OCoLC)")[1]
                         if self.debug:
-                            print(f"DEBUG: found an OCLC number ({record['oclc']}) on line {line_num}")
+                            print(f"DEBUG: found an OCLC number ({oclc_number}) on line {line_num}")
                     else:
-                        zero_three_five_list.append(line.split("|a")[1])
+                        record['035'].append(line.split("|a")[1])
                         if self.debug:
                             print(f"DEBUG: found an 035 on line {line_num} ({line})")
                     continue
         # End of the document; there are no more document boundaries to signal a new record.
-        if oclc_num_count < 1:
-            print(f"*warning, ({my_flexkey}) contains no OCLC number and will be ignored. Is the selection criteria correct?")
+        if not self._is_wellformed_(record):
+            print(f"*warning, TCN {record['001']} rejected.")
+            print(f"{len(records)} OCLC updates possible from {records_read} records read.")
+            return records
         if oclc_num_count > 1:
-            print(f"*warning, ({my_flexkey}) contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
-        record['035'] = zero_three_five_list
-        records.append(record)
+            print(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
+        records[str(oclc_number)] = record
         print(f"{len(records)} OCLC updates possible from {records_read} records read.")
         return records
+
+    # This method will return a 'set' or add list.
+    def get_local_list(self):
+        # TODO: return list with '+#######'.
+        return self.slim_bib_records.keys()
+
+    # Pass the dictionary of new and old OCLC numbers. This method
+    # will update the slim flat records and output to a file called
+    # <input>.slim.flat
+    def update_slim_flat(self, log:dict):
+        pass
 
 if __name__ == "__main__":
     import doctest
