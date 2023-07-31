@@ -41,10 +41,8 @@ class Flat:
         # Read FLAT file record by record.
         # Store the slim bib record as follows 
         # {'1234567':{
-        #   'reject': False,
         #   'form': 'FORM=MUSIC', 
         #   'tcn': 'on123456', 
-        #   'oclc': '1234567', 
         #   '035': ["(SIRSI) 035_0", "(OCM) 035_1", ...]},
         # ...}
         self.slim_bib_records = self._read_bib_records_(self.flat)
