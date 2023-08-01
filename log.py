@@ -48,6 +48,9 @@ class Log:
                     sys.stdout.write(f"{msg}\n")
         log.close()
 
+    def get_log_file(self):
+        return self.log
+
 if __name__ == "__main__":
     import doctest
     doctest.testfile("log.tst")
