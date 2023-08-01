@@ -25,6 +25,7 @@ import argparse
 import re
 from oclcws import OclcService
 from oclcreport import OclcReport
+from flat import Flat
 from log import Log
 from flat2marcxml import MarcXML
 
@@ -34,7 +35,7 @@ TEST = True
 #######prod#########
 # TEST = False
 #######prod#########
-VERSION='1.03.02'
+VERSION='2.00.01'
 
 # OCLC number search regexes. Lines that start with '+' mean add
 # the record, '-' means delete, and '?' means check the number. 
@@ -61,12 +62,14 @@ def _load_yaml_(yaml_path:str) -> dict:
         config['error'] = msg
     return config
 
-# Find set values in a string. 
+# Find set values in a string as read from a flat record value, 
+# after the '|' delimiter. For example '.035.    |a(OCoLC)12345678'
+# the search string should be '(OCoLC)12345678'. But any string that 
+# starts with digits or '+' will also match a 'set' request.
 # param: line str to search. 
 # return: The matching OCLC number or nothing if none found.
 def _find_set_(line:str):
-    add_matches = re.search(OCLC_ADD_MATCHER, line)
-    if add_matches:
+    if re.search(OCLC_ADD_MATCHER, line):
         oclc_num_match = re.search(NUM_MATCHER, line)
         return oclc_num_match[0]
 
@@ -105,7 +108,7 @@ def _find_check_(line):
 # param: Keyword (str) of either 'set' or 'unset'. 
 # param: Debug bool, if you want debug information displayed. 
 # return: List of OCLC numbers to be set or unset.
-def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
+def _read_num_file_(num_file:str, requested_activity:str, debug:bool=False) ->list:
     nums = []
     if debug:
         print(f"Reading {num_file}")
@@ -117,24 +120,24 @@ def _read_num_file_(num_file:str, set_unset:str, debug:bool=False) ->list:
     with open(num_file, encoding='ISO-8859-1', mode='r') as f:
         for l in f:
             line = l.rstrip()
-            if set_unset == 'set':
+            if requested_activity == 'set':
                 num = _find_set_(line)
                 if num:
                     nums.append(num)
-            elif set_unset == 'unset':
+            elif requested_activity == 'unset':
                 num = _find_unset_(line)
                 if num:
                     nums.append(num)
-            elif set_unset == 'check':
+            elif requested_activity == 'check':
                 num = _find_check_(line)
                 if num:
                     nums.append(num)
             else: # neither 'set', 'check', nor 'unset'
-                sys.stderr.write(f"*error, invalid parameter: '{set_unset}'!")
+                sys.stderr.write(f"*error, invalid parameter: '{requested_activity}'!")
                 break
     f.close()
     if debug:
-        print(f"Found {len(nums)} OCLC numbers to {set_unset} in file '{num_file}'.")
+        print(f"Found {len(nums)} OCLC numbers to {requested_activity} in file '{num_file}'.")
         print(f"The first 3 numbers read are: {nums[:3]}...")
     return nums
 
@@ -444,6 +447,63 @@ def _cmp_lists_(l1:list, l2:list) -> list:
             l1_dict.pop(oclc_num)
     return list(l1_dict.keys())
 
+# Given the logger parse out the update responses and return
+# them in a dictionary like: {'old_num': 'new_num'}
+# param: logger of the events, can provide the default log file, and writes
+#   any diagnostic messages to the log.
+# param: Optional string of the log file to parse if you don't want to use the
+#   default the logger is using. This is for testing but also for re-processing
+#   old logs, or perhaps if the log file was not truncated since it last ran. 
+#   In that case if the old OCLC number isn't found in the input flat file 
+#   it will be ignored anyway. 
+# # param: debug:bool default False turns on helpful diagnostic messages.   
+# return: dict of old oclc number keys and new oclc number values.
+def parse_log_for_updated_numbers(logger:Log, log_file:str='', debug:bool=False) -> dict:
+    # ?850940368 - Record confirmed
+    # operation 'check' results.
+    #           succeeded: 10
+    #            warnings: 0
+    #              errors: 0
+    #       total records: 10
+    # +850939592 - added
+    # +1002030249  updated to 968312172, Record not found for holdings operation
+    # ?850940368 is OCPSB holding: False as of '2023-04-21 01:48:24' See http://worldcat.org/oclc/850940368 for more information.
+    # +10003751 - updated to 1080766101, Record not found for holdings operation
+    # +1001073803 - updated to 945719262, Record not found for holdings operation
+    # ... 
+    old_new_numbers = {}
+    if not log_file:
+        log_file = logger.get_log_file()
+    if exists(log_file) and getsize(log_file) > 0:
+        if debug:
+            logger.logit(f"reading {log_file} for updated OCLC numbers.")
+        old_num_regex = re.compile(r'^\+\d+\s')
+        new_num_regex = re.compile(r'(updated to)\s\d+\,')
+        with open(log_file, encoding='ISO-8859-1', mode='r') as log:
+            line_num = 0
+            for line in log:
+                # Look for the last record.
+                new_num_match = re.search(new_num_regex, line)
+                if not new_num_match:
+                    continue
+                new_num = new_num_match[0][11:-1]
+                old_num_match = re.search(old_num_regex, line)
+                if not old_num_match:
+                    if debug:
+                        logger.logit(f"*warning while reading {log_file}. Found an update but couldn't parse the original number.")
+                    continue
+                old_num = old_num_match[0][1:-1]
+                if TEST:
+                    logger.logit(f"TEST: updated pairs: '{old_num}' => '{new_num}'")
+                old_new_numbers[f"{old_num}"] = str(new_num)
+    else:
+        if TEST:
+            logger.logit(f"*warning: log file {log_file} is missing or empty.")
+        else:
+            logger.logit(f"*warning: log file {log_file} is missing or empty.",
+                level='error', include_timestamp=True)
+    return old_new_numbers
+
 # Main entry to the application if not testing.
 def main(argv):
 
@@ -537,6 +597,7 @@ def main(argv):
     unset_holdings_lst = []
     check_holdings_lst = []
     done_lst           = []
+    flat_manager           = None
     # Add records to institution's holdings.
     if args.set:
         set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
@@ -548,6 +609,13 @@ def main(argv):
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
         check_holdings_lst = _read_num_file_(args.check, 'check', args.debug)
+
+    # Create set list from a flat file.
+    if args.flat:
+        # A Flat object can read and parse flat files as well as return OCLC
+        # numbers and update oclc numbers for slim flat file overlay files.
+        flat_manager = Flat(args.flat, args.debug)
+        set_holdings_lst.extend(flat_manager.get_local_list())
 
     # Compute the difference between the master list and what the receipt list has done,
     # then overwrite the master list.
@@ -573,17 +641,20 @@ def main(argv):
         logger.logit(f"re-run script with new master list.")
         sys.exit()
 
-    # TODO: Add flat.py and code to use the flat input instead of a --local list of OCLC numbers.
-    
-
     # Reclamation report that is both files must exist and be read.
-    if args.local and args.remote:
+    if args.local or args.flat and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
         set_holdings_lst.clear()
-        if args.debug:
-            sys.stderr.write(f"DEBUG: starting to read local holdings.\n")
-        set_holdings_lst = _read_num_file_(args.local, 'set', args.debug)
+        if args.local:
+            if args.debug:
+                sys.stderr.write(f"DEBUG: starting to read local holdings.\n")
+            set_holdings_lst = _read_num_file_(args.local, 'set', args.debug)
+        if args.flat:
+            if args.debug:
+                sys.stderr.write(f"DEBUG: starting to read holdings from flat file.\n")
+            flat_manager = Flat(args.flat, args.debug)
+            set_holdings_lst.extend(flat_manager.get_local_list())
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
         # Read the report of remote holdings (holdings at OCLC)
@@ -630,6 +701,12 @@ def main(argv):
                     done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
                     done_lst.extend(done)
                 write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
+                if flat_manager:
+                    my_updated_numbers = parse_log_for_updated_numbers(logger, debug=args.debug)
+                    if my_updated_numbers:
+                        flat_manager.update_and_write_slim_flat(my_updated_numbers)
+                    else:
+                        logger.logit(f"No slim file will be produced because no update numbers found in {logger.get_log_file()}\n")
             else:
                 sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
         logger.logit('done', include_timestamp=True)
