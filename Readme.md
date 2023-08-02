@@ -199,12 +199,11 @@ Random text on a line   # Ignored.
 3) Use the command `python oclc.py --local=local.lst --remote=remote.lst`. This will generate a master list of record instructions with [patch notation]().
 
 ## OCLC Records
-1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary).
-2) Once logged in select the `Analytics` tab.
-3) Select Collection Evaluation and click the `My Library` button.
-4) Below the summary table select `Export Title List` button, give the report a name and description if desired, and dismiss the dialog telling you how long it will take. Expect at least **1.5+ hours**.
-5) Some time later, download the zipped XSL file from the `My Files` menu on the left of the page, and unzip.
-6) You can use `pandas` or `excel` to open and analyse, but I have more luck with `OpenOffice`.
+1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary). For EPL the URL is [https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary) but your library will have it's own portal.
+2) Once logged in select the `Analytics` tab and make sure you are on the page with the `My Library` heading. If not select `Collection Evaluation` and then the `My Library` button.
+3) Below the summary table select `Export Title List` button, give the report a name and description if desired, and dismiss the dialog box telling you how long it will take. Expect at least **1.5+ hours**.
+4) After the appropriate time has elapsed, re-login to the [portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary) and navigate to the `Metadata` tab. Select the `My Files` menu on the left margin of the page, click the `Downloads` button then find, download, and unzip the compressed XSL report.
+5) You can use `pandas` or `excel` to open and analyse, but I have more luck with `OpenOffice`.
 **Hint**:
    1) Open the `xls` in `OpenOffice` sheets as a **fixed width** document.
    2) Save as `csv` to file `full_cat.csv`.
@@ -214,13 +213,13 @@ Random text on a line   # Ignored.
       3) Awk 3 further splits on the afore-mentioned `")`, and outputs field 1.
    4) To check `wc -l full_cat.csv` compared with `wc -l oclcnumbers.txt`.
    5) To check that all the lines have values use `cat oclcnumbers.txt | pipe.pl -zc0 | wc -l`. It should show the same number of lines as the `csv`.
-7) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
-8) Use `oclc.py` to create a master list by using `--remote=oclcnumbers.txt` and `--local=librarynumbers.txt`. This will create a master list (`master.lst`) in the current directory. Examine the results and see the delta of OCLC and your library. 
+1) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
+2) Use `oclc.py` to create a master list by using `--remote=oclcnumbers.txt` and `--local=librarynumbers.txt`. This will create a master list (`master.lst`) in the current directory. Examine the results and see the delta of OCLC and your library. 
    1) Records that OCLC are missing are marked with `+`.
    2) Records that OCLC has but your library no longer has are marked with `-`.
    3) Records that don't need attention start with a space (` `).
    4) Lines that start with `?` indicate that the OCLC number should be confirmed.
-9) Use the `--update_instructions=master.lst` as the instruction file and `--update` flag to actually do the work. The order of operations are as follows.
+3) Use the `--update_instructions=master.lst` as the instruction file and `--update` flag to actually do the work. The order of operations are as follows.
    1)  Checks
    2)  Deletes
    3)  Adds
