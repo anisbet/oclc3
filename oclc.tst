@@ -332,3 +332,67 @@ Test write master
 >>> dels = [33333333,4444444444,]
 >>> done = [10000,20000,30000,40000]
 >>> o.write_update_instruction_file(path='receipt_test.txt', add_list=adds, del_list=dels, check_list=chks, done_list=done)
+
+
+>>> l = ['0','1','2','3',]
+>>> USE_QUOTAS = True
+>>> configs = {'checkQuota': 2}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1']
+>>> configs = {'checkQuota': -1}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1', '2']
+>>> configs = {'checkQuota': 1000}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1', '2', '3']
+>>> configs = {'wrongQuota': 5}
+>>> o.get_quota(l,'checkQuota',configs)
+['0', '1', '2', '3']
+
+
+Test reading log file.
+>>> my_result_dict = o.parse_log_for_updated_numbers(logger, 'test_data/test.log')
+TEST: updated pairs: '1002126138' => '1140266343'
+TEST: updated pairs: '1002831041' => '917874228'
+TEST: updated pairs: '1002126134' => '971892745'
+TEST: updated pairs: '1002831300' => '1004764028'
+TEST: updated pairs: '1002126175' => '962009789'
+TEST: updated pairs: '1002831123' => '973289635'
+TEST: updated pairs: '1003293458' => '1008910008'
+TEST: updated pairs: '1003293517' => '983821743'
+TEST: updated pairs: '1002831478' => '1004272724'
+TEST: updated pairs: '1002126296' => '1242336414'
+TEST: updated pairs: '1002831089' => '952648285'
+TEST: updated pairs: '1005090512' => '1242318479'
+TEST: updated pairs: '1002658097' => '994028059'
+TEST: updated pairs: '1002831148' => '978276029'
+TEST: updated pairs: '1002831525' => '995852617'
+TEST: updated pairs: '1002831190' => '973289618'
+TEST: updated pairs: '1002030249' => '968312172'
+TEST: updated pairs: '1002830956' => '964303458'
+TEST: updated pairs: '1002126096' => '964919730'
+TEST: updated pairs: '1002126099' => '964933008'
+TEST: updated pairs: '1002126061' => '965140680'
+TEST: updated pairs: '1002830943' => '959660952'
+TEST: updated pairs: '1002125756' => '992119372'
+TEST: updated pairs: '1002125966' => '964928826'
+TEST: updated pairs: '1002831492' => '967942405'
+TEST: updated pairs: '1002126921' => '1029561464'
+TEST: updated pairs: '1002126176' => '962006279'
+TEST: updated pairs: '1002076149' => '979562090'
+TEST: updated pairs: '1002126130' => '943642673'
+TEST: updated pairs: '1001995104' => '966397684'
+TEST: updated pairs: '1002126247' => '964928878'
+TEST: updated pairs: '1002126227' => '992580620'
+TEST: updated pairs: '1002126265' => '970392037'
+TEST: updated pairs: '1002895546' => '970405946'
+TEST: updated pairs: '1002831141' => '965329926'
+TEST: updated pairs: '1000539950' => '981605979'
+TEST: updated pairs: '1000612998' => '988950698'
+TEST: updated pairs: '10003751' => '1080766101'
+TEST: updated pairs: '1001073803' => '945719262'
+TEST: updated pairs: '1001271468' => '965762055'
+TEST: updated pairs: '1000587177' => '1242281073'
+
+>>> my_result_dict = o.parse_log_for_updated_numbers(logger,'test_data/text.log',debug=True)
+*warning: log file test_data/text.log is missing or empty.
