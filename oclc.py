@@ -560,31 +560,31 @@ def main(argv):
         sys.exit()
 
     if args.debug:
-        print(f"== vars ==")
-        print(f"check: '{args.check}'")
-        print(f"debug: '{args.debug}'")
-        print(f"flat: '{args.flat}'")
-        print(f"local: '{args.local}'")
-        print(f"remote: '{args.remote}'")
-        print(f"set: '{args.set}'")
-        print(f"unset: '{args.unset}'")
-        print(f"update: '{args.update_instructions}'")
-        print(f"xml records: '{args.xml_records}'")
-        print(f"yaml: '{args.yaml}'")
-        print(f"whats_left: {args.whats_left}")
+        logger.logit(f"== vars ==")
+        logger.logit(f"check: '{args.check}'")
+        logger.logit(f"debug: '{args.debug}'")
+        logger.logit(f"flat: '{args.flat}'")
+        logger.logit(f"local: '{args.local}'")
+        logger.logit(f"remote: '{args.remote}'")
+        logger.logit(f"set: '{args.set}'")
+        logger.logit(f"unset: '{args.unset}'")
+        logger.logit(f"update: '{args.update_instructions}'")
+        logger.logit(f"xml records: '{args.xml_records}'")
+        logger.logit(f"yaml: '{args.yaml}'")
+        logger.logit(f"whats_left: {args.whats_left}")
         if 'addQuota' in configs:
-            print(f"add quota: {configs['addQuota']}")
+            logger.logit(f"add quota: {configs['addQuota']}")
         else:
-            print(f"add unlimited")
+            logger.logit(f"add unlimited")
         if 'deleteQuota' in configs:
-            print(f"delete quota: {configs['deleteQuota']}")
+            logger.logit(f"delete quota: {configs['deleteQuota']}")
         else:
-            print(f"delete unlimited")
+            logger.logit(f"delete unlimited")
         if 'checkQuota' in configs:
-            print(f"check quota: {configs['checkQuota']}")
+            logger.logit(f"check quota: {configs['checkQuota']}")
         else:
-            print(f"check unlimited")
-        print(f"== vars ==\n")
+            logger.logit(f"check unlimited")
+        logger.logit(f"== vars ==\n")
 
     # Upload XML MARC21 records.
     if args.xml_records:
@@ -597,7 +597,7 @@ def main(argv):
     unset_holdings_lst = []
     check_holdings_lst = []
     done_lst           = []
-    flat_manager           = None
+    flat_manager       = None
     # Add records to institution's holdings.
     if args.set:
         set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
@@ -614,7 +614,7 @@ def main(argv):
     if args.flat:
         # A Flat object can read and parse flat files as well as return OCLC
         # numbers and update oclc numbers for slim flat file overlay files.
-        flat_manager = Flat(args.flat, args.debug)
+        flat_manager = Flat(args.flat, args.debug, logger=logger)
         set_holdings_lst.extend(flat_manager.get_local_list())
 
     # Compute the difference between the master list and what the receipt list has done,
@@ -653,7 +653,7 @@ def main(argv):
         if args.flat:
             if args.debug:
                 sys.stderr.write(f"DEBUG: starting to read holdings from flat file.\n")
-            flat_manager = Flat(args.flat, args.debug)
+            flat_manager = Flat(args.flat, args.debug, logger=logger)
             set_holdings_lst.extend(flat_manager.get_local_list())
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")

@@ -21,6 +21,7 @@ import sys
 import re
 from os.path import exists
 from os import linesep
+from log import Log
 
 IS_TEST = False
 
@@ -32,13 +33,14 @@ IS_TEST = False
 # response contains an updated the record will be modified, and concatinated 
 # to slim file in preparation for 'catalogmerge'. 
 class Flat:
-    def __init__(self, flat_file:str, debug:bool=False):
+    def __init__(self, flat_file:str, debug:bool=False, logger:Log=None):
         self.flat = flat_file
         self.debug= debug
+        self.logger = logger
         if self.debug:
             print(f"DEBUG: reading {self.flat}")
         if not exists(self.flat):
-            sys.stderr.write(f"*error, no such flat file: '{self.flat}'.\n")
+            sys.stderr.write(f"*error, no such flat file: '{self.flat}'." + linesep)
         # Read FLAT file record by record.
         # Store the slim bib record as follows 
         # {'1234567':{
@@ -48,8 +50,22 @@ class Flat:
         # ...}
         self.slim_bib_records = self._read_bib_records_(self.flat)
         if IS_TEST:
-            print(f"{self.slim_bib_records}")
+            self.print_or_log(f"{self.slim_bib_records}")
 
+    # Wrapper for the logger. Added after the class was written
+    # and to avoid changing tests. 
+    # param: message:str message to either log or print. 
+    # param: to_stderr:bool if True and logger  
+    def print_or_log(self, message:str, to_stderr:bool=False):
+        if self.logger:
+            if to_stderr:
+                self.logger.logit(message, level='error', include_timestamp=True)
+            else:
+                self.logger.logit(message)
+        elif to_stderr:
+            sys.stderr.write(f"{message}" + linesep)
+        else:
+            print(f"{message}")
     # Tests the necessary conditions of a well-formed slim record.
     # Those conditions are; it must have a '001', an OCLC number,
     # it must not be empty, and it must have a form identifier.
@@ -94,15 +110,15 @@ class Flat:
                 if re.search(document_sentinal, line):
                     records_read += 1
                     if self.debug:
-                        print(f"DEBUG: found document boundary on line {line_num}")
+                        self.print_or_log(f"DEBUG: found document boundary on line {line_num}")
                     # close previous record if open, and open new record
                     if self._is_wellformed_(record):
                         if oclc_num_count > 1:
-                            print(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
+                            self.print_or_log(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
                         if oclc_number:
                             records[str(oclc_number)] = record
                         else:
-                            print(f"*warning, rejecting TCN {record['001']} as malformed; possibly missing OCLC number.")
+                            self.print_or_log(f"*warning, rejecting TCN {record['001']} as malformed; possibly missing OCLC number.")
                     record = {}
                     record['001'] = ''
                     record['form'] = ''
@@ -114,14 +130,14 @@ class Flat:
                 if re.search(form_sentinal, line):
                     # Just add it 
                     if self.debug:
-                        print(f"DEBUG: found form description on line {line_num}")
+                        self.print_or_log(f"DEBUG: found form description on line {line_num}")
                     record['form'] = line
                     continue
                 # .001. |aon1347755731  
                 if re.search(tcn, line):
                     record['001'] = line.split("|a")[1]
                     if self.debug:
-                        print(f"DEBUG: found TCN {record['001']} on line {line_num}")
+                        self.print_or_log(f"DEBUG: found TCN {record['001']} on line {line_num}")
                     continue
                 # TODO: Add configurable tag and value rejection functionality. Like '250': 'On Order' = 'reject': True.
                 # .035.   |a(OCoLC)987654321
@@ -132,21 +148,21 @@ class Flat:
                         oclc_num_count += 1
                         oclc_number = line.split("|a(OCoLC)")[1]
                         if self.debug:
-                            print(f"DEBUG: found an OCLC number ({oclc_number}) on line {line_num}")
+                            self.print_or_log(f"DEBUG: found an OCLC number ({oclc_number}) on line {line_num}")
                     else:
                         record['035'].append(line.split("|a")[1])
                         if self.debug:
-                            print(f"DEBUG: found an 035 on line {line_num} ({line})")
+                            self.print_or_log(f"DEBUG: found an 035 on line {line_num} ({line})")
                     continue
         # End of the document; there are no more document boundaries to signal a new record.
         if not self._is_wellformed_(record):
-            print(f"*warning, TCN {record['001']} rejected.")
-            print(f"{len(records)} OCLC updates possible from {records_read} records read.")
+            self.print_or_log(f"*warning, TCN {record['001']} rejected.")
+            self.print_or_log(f"{len(records)} OCLC updates possible from {records_read} records read.")
             return records
         if oclc_num_count > 1:
-            print(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
+            self.print_or_log(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
         records[str(oclc_number)] = record
-        print(f"{len(records)} OCLC updates possible from {records_read} records read.")
+        self.print_or_log(f"{len(records)} OCLC updates possible from {records_read} records read.")
         return records
 
     # This method will return a 'set' or add list.
@@ -170,7 +186,7 @@ class Flat:
     #   be found in the original input flat file. 
     def update_and_write_slim_flat(self, oclc_updates:dict) -> bool:
         if not oclc_updates:
-            sys.stderr.write(f"Nothing to update.")
+            self.print_or_log(f"No OCLC updates detected.")
             return False
         # Make up a new file name for the updated slim file.
         slim_file = f"{self.flat}.updated"
@@ -183,9 +199,9 @@ class Flat:
                 if not old_num or not new_num:
                     continue
                 try:
-                    # print(f"self.slim_bib_records={self.slim_bib_records}")
+                    # self.print_or_log(f"self.slim_bib_records={self.slim_bib_records}")
                     record = self.slim_bib_records.pop(old_num)
-                    # print(f"old_num={old_num} : record={record}")
+                    # self.print_or_log(f"old_num={old_num} : record={record}")
                     # Write out the slim flat data.
                     s.write(f"*** DOCUMENT BOUNDARY ***" + linesep)
                     s.write(f"{record['form']}" + linesep)
@@ -196,14 +212,14 @@ class Flat:
                     update_count += 1
                 except KeyError:
                     # This can happen if an old log file is old or contains several submissions.
-                    print(f"Ignoring '{old_num}' because it is not included in the submitted flat file.")
+                    self.print_or_log(f"Ignoring '{old_num}' because it is not included in the submitted flat file.")
         if update_count <= 0:
-            print(f"No bibs records needed updating.")
+            self.print_or_log(f"No bibs records needed updating.")
             return False
         else:
-            print(f"Total flat records submitted: {total_flat_records_submitted}")
-            print(f"OCLC request-to-update responses: {len(oclc_updates)}")
-            print(f"Total bib updates written to {slim_file}: {update_count}")
+            self.print_or_log(f"Total flat records submitted: {total_flat_records_submitted}")
+            self.print_or_log(f"OCLC request-to-update responses: {len(oclc_updates)}")
+            self.print_or_log(f"Total bib updates written to {slim_file}: {update_count}")
         return True
 
 if __name__ == "__main__":

@@ -74,6 +74,7 @@ Should return False if there were no update requests from OCLC.
 
 >>> updated_from_log_dict = {}
 >>> flat.update_and_write_slim_flat(updated_from_log_dict)
+No OCLC updates detected.
 False
 
 If the dictionary contains old OCLC update requests, that is
