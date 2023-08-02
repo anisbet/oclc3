@@ -20,6 +20,7 @@
 import sys
 import re
 from os.path import exists
+from os import linesep
 
 IS_TEST = False
 
@@ -31,9 +32,9 @@ IS_TEST = False
 # response contains an updated the record will be modified, and concatinated 
 # to slim file in preparation for 'catalogmerge'. 
 class Flat:
-    def __init__(self, flat_file:str, configs:dict={}):
+    def __init__(self, flat_file:str, debug:bool=False):
         self.flat = flat_file
-        self.debug= configs.get("debug")
+        self.debug= debug
         if self.debug:
             print(f"DEBUG: reading {self.flat}")
         if not exists(self.flat):
@@ -42,7 +43,7 @@ class Flat:
         # Store the slim bib record as follows 
         # {'1234567':{
         #   'form': 'FORM=MUSIC', 
-        #   'tcn': 'on123456', 
+        #   '001': 'on123456', 
         #   '035': ["(SIRSI) 035_0", "(OCM) 035_1", ...]},
         # ...}
         self.slim_bib_records = self._read_bib_records_(self.flat)
@@ -150,14 +151,60 @@ class Flat:
 
     # This method will return a 'set' or add list.
     def get_local_list(self):
-        # TODO: return list with '+#######'.
-        return self.slim_bib_records.keys()
+        return list(self.slim_bib_records.keys())
 
     # Pass the dictionary of new and old OCLC numbers. This method
     # will update the slim flat records and output to a file called
-    # <input>.slim.flat
-    def update_slim_flat(self, log:dict):
-        pass
+    # <input>.slim.flat.
+    # Search for the old reference in the list of OCLC numbers the library
+    # holds, if found remove it from the flat dictionary and replace the record
+    # with the new key. Make sure to report if the updated OCLC number key
+    # exists already. It is not an error if the old key can't be found. It just
+    # means that the log file wasn't truncated to just the previous run, and 
+    # may contain records to update from previous times. 
+    # param: oclc_updates: dict of the old numbers as keys and new
+    #   updated numbers as values. 
+    # return: result:bool True if the slim file was successfully written
+    #   with some updates, and False if the file wasn't written, there
+    #   were no updates to write, or none of the requested updates could
+    #   be found in the original input flat file. 
+    def update_and_write_slim_flat(self, oclc_updates:dict) -> bool:
+        if not oclc_updates:
+            sys.stderr.write(f"Nothing to update.")
+            return False
+        # Make up a new file name for the updated slim file.
+        slim_file = f"{self.flat}.updated"
+        total_flat_records_submitted = len(self.slim_bib_records)
+        # This is the number of records read from the flat file.
+        update_count = 0
+        with open(slim_file, encoding='ISO-8859-1', mode='w') as s:
+            for (old_num, new_num) in oclc_updates.items():
+                # Don't update is there was any hint that a problem happened.
+                if not old_num or not new_num:
+                    continue
+                try:
+                    # print(f"self.slim_bib_records={self.slim_bib_records}")
+                    record = self.slim_bib_records.pop(old_num)
+                    # print(f"old_num={old_num} : record={record}")
+                    # Write out the slim flat data.
+                    s.write(f"*** DOCUMENT BOUNDARY ***" + linesep)
+                    s.write(f"{record['form']}" + linesep)
+                    s.write(f".001. |a{record['001']}" + linesep)
+                    s.write(f".035.   |a(OCoLC){new_num}" + linesep)
+                    for zero35 in record['035']:
+                        s.write(f".035.   |a{zero35}" + linesep)
+                    update_count += 1
+                except KeyError:
+                    # This can happen if an old log file is old or contains several submissions.
+                    print(f"Ignoring '{old_num}' because it is not included in the submitted flat file.")
+        if update_count <= 0:
+            print(f"No bibs records needed updating.")
+            return False
+        else:
+            print(f"Total flat records submitted: {total_flat_records_submitted}")
+            print(f"OCLC request-to-update responses: {len(oclc_updates)}")
+            print(f"Total bib updates written to {slim_file}: {update_count}")
+        return True
 
 if __name__ == "__main__":
     import doctest
