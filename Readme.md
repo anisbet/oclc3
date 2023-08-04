@@ -176,6 +176,8 @@ Each of the operations of `check`, `add`, and `delete` can have applied quotas w
 With a quota set, once the limit is reached the `master.lst` is updated with the remaining instructions to do when the script is restarted.
 
 ## Example of a Number List
+**NOTE: While this technique is supported, `oclc.py` can now read and update `flat` files. It is therefore the preferred method of creating a submission.**
+
 The following illustrates the types of strings that `oclc.py` can read and how they will be interpreted.
 
 
@@ -202,7 +204,7 @@ Random text on a line   # Ignored.
 1) Create a report of all the titles from the library by logging into OCLC's [WorldShare Administration Portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary). For EPL the URL is [https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary) but your library will have it's own portal.
 2) Once logged in select the `Analytics` tab and make sure you are on the page with the `My Library` heading. If not select `Collection Evaluation` and then the `My Library` button.
 3) Below the summary table select `Export Title List` button, give the report a name and description if desired, and dismiss the dialog box telling you how long it will take. Expect at least **1.5+ hours**.
-4) After the appropriate time has elapsed, re-login to the [portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary) and navigate to the `Metadata` tab. Select the `My Files` menu on the left margin of the page, click the `Downloads` button then find, download, and unzip the compressed XSL report.
+4) After the appropriate time has elapsed, re-login to the [portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary) and navigate to the `Analytics` tab. Select the `My Files` menu on the left margin of the page, click the `Download Files` button. Download, and unzip the compressed XSL report.
 5) You can use `pandas` or `excel` to open and analyse, but I have more luck with `OpenOffice`.
 **Hint**:
    1) Open the `xls` in `OpenOffice` sheets as a **fixed width** document.
@@ -231,11 +233,10 @@ The Sympony API to collect data for submission to OCLC is listed below.
 selitem \ 
 -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" \ 
 -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" \ 
--oC 2>/dev/null | sort | uniq >catkeys.wo_types.wo_locations.lst 
-cat catkeys.wo_types.wo_locations.lst | catalogdump -kf035 -of | nowrap.pl | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >all_records.flat
-# We'll use the flat file later to back reference the OCLC numbers to
-# specific MARC records and make any local XML records if needed.
-awk -F"\|a" '{ if ($2 ~ /\(OCoLC\)/) { oclcnum = $2; gsub(/\(OCoLC\)/, "", oclcnum); print oclcnum; }}' all_records.flat >librarynumbers.txt
+-oC 2>/dev/null | sort | uniq >oclc_catkeys.lst 
+cat oclc_catkeys.lst | catalogdump -oF >all_records.flat
+# Use oclc.py's --flat switch to read the flat file instead 
+# of a just a list of numbers.
 ```
 
 Once done use `oclc.py` script's `--local` can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, `?` means check the number, and a ` ` indicates nothing needs to be done.
@@ -244,39 +245,27 @@ Once done use `oclc.py` script's `--local` can be used to create a master list o
 **TODO Check this over. The code below only removes the 250 tags not the on order records themselves.**
 That is titles that have been modified (-r) or created (-p) since 90-days ago.
 ```bash
-selitem -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" -oC 2>/dev/null | sort | uniq >catkeys.no_t.no_l.lst 
-cat catkeys.no_t.no_l.lst | selcatalog -iC -p">`transdate -d-90`" -oC  >mixed.catkeys.90d.lst
-cat catkeys.no_t.no_l.lst | selcatalog -iC -r">`transdate -d-90`" -oC  >>mixed.catkeys.90d.lst 
-cat mixed.catkeys.90d.lst | sort | uniq >mixed.catkeys.90d.uniq.lst
-cat mixed.catkeys.90d.uniq.lst | catalogdump -kf035 -of | grep -v -i -e '\.250\.[ \t]+\|aExpected release' >flat.wo.onorder.lst
-cat flat.wo.onorder.lst | flatskip -if -aMARC -om >mixed.mrc
+selitem -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" -oC 2>/dev/null | sort | uniq >oclc_ckeys.lst 
+cat oclc_ckeys.lst | selcatalog -iC -p">`transdate -d-90`" -oC  >oclc_catalog_selection.lst
+cat oclc_ckeys.lst | selcatalog -iC -r">`transdate -d-90`" -oC  >>oclc_catalog_selection.lst 
+cat oclc_catalog_selection.lst | sort | uniq >oclc_catalog_selection.uniq.lst
+# Output the flat records as a flat file.
+# If the records don't wrap, pipe it to flatskip -if -aMARC -om >mixed.flat
+# -oF outputs the flat record without linewrapping.
+cat oclc_catalog_selection.uniq.lst | catalogdump -oF >oclc_submission.flat
 ```
 # Updating the Library's Catalog Records
-The `oclc.py` log file can be used to update the library's ILS bib records.
+The `oclc.py` will use information in oclc's responses to create a slim-flat file for overlaying updated OCoLC numbers in the `035` tag. The slim-flat file can then be used with Symphony's `catalogmerge` API command to update the ILS.
 
-The `makeSlimMard.awk` will convert the original flat records (used to generate the `--local` list) into a slim-FLAT file that `oclc.py` can edit, adding the updated OCLC numbers. The modified slim file can then be used with Symphony's `catalogmerge` API command to update the ILS.
-
-```bash
-*** DOCUMENT BOUNDARY ***
-FORM=MUSIC               
-.000. |ajm7i0n a         
-.001. |aon1347755731     
-.596.   |a1
-.035.   |a(OCoLC)987654321
-.035.   |a(Sirsi) 111111111
-.035.   |a(OCoLC)77777777
-```
-Gets converted using the command line below.
+**Note:** `catalogmerge` can either delete all the `035` tags or add the new one(s) to the record. I have opted to use the delete option to avoid duplicates. This requires preserving all non-OCLC `035` tags and replacing the OCLC tags with updated values. See below.
 
 ```bash
-awk -f makeSlimMarc.awk all_records.flat >all_records_slim.flat
-cat all_records_slim.flat
 *** DOCUMENT BOUNDARY ***
 FORM=MUSIC                      
 .001. |aon1347755731     
-.035.   |NEW_OCLC_NUMBER|z(OCoLC)987654321
-.035.   |a(Sirsi) 111111111
-.035.   |NEW_OCLC_NUMBER|z(OCoLC)77777777
+.035.   |a(OCoLC)1000001234|z(OCoLC)987654321
+.035.   |a(Sirsi) on1347755731
+.035.   |a(EPL) on1347755731
   ...
 ```
 
@@ -339,7 +328,7 @@ Ref
 ## Symphony XML Item Tool
 This tool outputs catalog information about items, as an example:
 ```bash
-head mixed.catkeys.90d.lst | xmlitem -iC -cf -e035,008,250 # Other tags can be added.
+head oclc_catalog_selection.lst | xmlitem -iC -cf -e035,008,250 # Other tags can be added.
 ```
 ### LOC MARC XML Full Example
 From Library of Congress [https://www.loc.gov/standards/marcxml/xml/collection.xml](https://www.loc.gov/standards/marcxml/xml/collection.xml)

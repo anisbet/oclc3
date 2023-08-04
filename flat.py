@@ -33,10 +33,23 @@ IS_TEST = False
 # response contains an updated the record will be modified, and concatinated 
 # to slim file in preparation for 'catalogmerge'. 
 class Flat:
-    def __init__(self, flat_file:str, debug:bool=False, logger:Log=None):
+
+    # Constructor.
+    # param: flat_file:str path to the flat file to be read.
+    # param: debug:bool turns on and off extra diagnostic messaging. 
+    # param: logger:Log optional logging. The class will use it if available. 
+    # param: ignore:dict optional list of tags and values used to filter out 
+    #   a bib record from submission to OCLC. For example, if you wanted to 
+    #   not submit records that had 'on-order' in the '250' tag the dictionary
+    #   would contain {'250', 'on-order'}. If a repeatable tag is submitted
+    #   all of those tags will be searched, and if found in any, the record
+    #   will be rejected. Tags must be unique, that is you cannot specify
+    #   multiple filters for a given tag. 
+    def __init__(self, flat_file:str, debug:bool=False, logger:Log=None, ignore:dict={}):
         self.flat = flat_file
         self.debug= debug
         self.logger = logger
+        self.reject_tags = ignore
         if self.debug:
             print(f"DEBUG: reading {self.flat}")
         if not exists(self.flat):
@@ -82,6 +95,30 @@ class Flat:
             return False
         else:
             return True
+
+    # Tests if an arbitrary line from a flat file contains tag(s) and
+    # values that indicate the record should be rejected.
+    # param: line:str from the flat file. 
+    # return: True if the line contains a tag and tag value that is
+    #   in the dictionary of reject tags, and False otherwise.  
+    def is_reject_record(self, line:str, tcn:str='') -> bool:
+        if not line:
+            return False
+        split_line = line.split('|a')
+        if not split_line or len(split_line) <= 1:
+            return False
+        # Trim the trailing whitespace and remove the '.'s from either
+        # end of the tag number. 
+        tag = split_line[0].strip()[1:-1]
+        tag_value = split_line[1].strip()
+        for reject_tag, reject_value in self.reject_tags.items():
+            if reject_tag.lower() == tag.lower():
+                # TODO: Improve to test if the value contains the reject value
+                # not just match the entire value. 
+                if reject_value.lower() == tag_value.lower():
+                    self.print_or_log(f"record {tcn} rejected because {tag} contains '{reject_value}'")
+                    return True
+        return False
 
     # Reads a single bib record
     def _read_bib_records_(self, flat):
@@ -139,7 +176,16 @@ class Flat:
                     if self.debug:
                         self.print_or_log(f"DEBUG: found TCN {record['001']} on line {line_num}")
                     continue
-                # TODO: Add configurable tag and value rejection functionality. Like '250': 'On Order' = 'reject': True.
+                # Configurable tag and value rejection functionality. Like '250': 'On Order' = 'reject': True.
+                if self.reject_tags:
+                    if self.is_reject_record(line, record.get('001')):
+                        record = {}
+                        record['001'] = ''
+                        record['form'] = ''
+                        record['035'] = []
+                        oclc_number = ''
+                        oclc_num_count = 0
+                        continue
                 # .035.   |a(OCoLC)987654321
                 # .035.   |a(Sirsi) 111111111
                 if re.search(zero_three_five, line):
@@ -156,7 +202,6 @@ class Flat:
                     continue
         # End of the document; there are no more document boundaries to signal a new record.
         if not self._is_wellformed_(record):
-            self.print_or_log(f"*warning, TCN {record['001']} rejected.")
             self.print_or_log(f"{len(records)} OCLC updates possible from {records_read} records read.")
             return records
         if oclc_num_count > 1:

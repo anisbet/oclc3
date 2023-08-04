@@ -30,12 +30,13 @@ from log import Log
 from flat2marcxml import MarcXML
 
 #######test#########
-TEST = True
+# TEST = True
 #######test#########
 #######prod#########
-# TEST = False
+TEST = False
 #######prod#########
-VERSION='2.00.01'
+# This update filters reject bib records based on 'ignore' tags dictionary.
+VERSION='2.02.00'
 
 # OCLC number search regexes. Lines that start with '+' mean add
 # the record, '-' means delete, and '?' means check the number. 
@@ -526,6 +527,7 @@ def main(argv):
     You cannot use '--local' and '--flat'.
     """
     parser.add_argument('-f', '--flat', action='store', metavar='[/foo/bibs.flat]', help=f"{flat_msg}")
+    parser.add_argument('-i', '--ignore', action='store', metavar='{"tag_num": "tag text"}', help=f"Ignore bib records that have a given tag that contains a specific value.")
     parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
     parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
     parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
@@ -564,6 +566,7 @@ def main(argv):
         logger.logit(f"check: '{args.check}'")
         logger.logit(f"debug: '{args.debug}'")
         logger.logit(f"flat: '{args.flat}'")
+        logger.logit(f"ignore: '{args.ignore}'")
         logger.logit(f"local: '{args.local}'")
         logger.logit(f"remote: '{args.remote}'")
         logger.logit(f"set: '{args.set}'")
@@ -614,7 +617,7 @@ def main(argv):
     if args.flat:
         # A Flat object can read and parse flat files as well as return OCLC
         # numbers and update oclc numbers for slim flat file overlay files.
-        flat_manager = Flat(args.flat, args.debug, logger=logger)
+        flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=args.ignore)
         set_holdings_lst.extend(flat_manager.get_local_list())
 
     # Compute the difference between the master list and what the receipt list has done,
@@ -653,7 +656,7 @@ def main(argv):
         if args.flat:
             if args.debug:
                 sys.stderr.write(f"DEBUG: starting to read holdings from flat file.\n")
-            flat_manager = Flat(args.flat, args.debug, logger=logger)
+            flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=args.ignore)
             set_holdings_lst.extend(flat_manager.get_local_list())
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
