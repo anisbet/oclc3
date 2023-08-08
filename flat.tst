@@ -37,7 +37,7 @@ DEBUG: found an 035 on line 11 (.035.   |a(Sirsi) o12345678)
 DEBUG: found an 035 on line 12 (.035.   |a(Sirsi) o11111111)
 DEBUG: found an 035 on line 13 (.035.   |a(CaAE) o779882439)
 DEBUG: found document boundary on line 44
-*warning, rejecting TCN ocn779882439 as malformed; possibly missing OCLC number.
+rejecting ocn779882439, no OCLC number.
 DEBUG: found form description on line 45
 DEBUG: found TCN ocn782078599 on line 47
 DEBUG: found an 035 on line 56 (.035.   |a(Sirsi) o782078599)
@@ -52,6 +52,7 @@ DEBUG: found an OCLC number (777777777) on line 106
 DEBUG: found an 035 on line 107 (.035.   |a(ULS) epl01318816)
 *warning, TCN epl01318816 contains multiple OCLC numbers. Only the last will be checked and updated as necessary.
 2 OCLC updates possible from 3 records read.
+1 records were rejected because they didn't have OCLC numbers.
 
 
 Test update_and_write_slim_flat() method
@@ -107,4 +108,17 @@ Test record passes if the ignore dictionary is empty
 
 Test record passes if record doesn't contain the / a reject tag.
 >>> flat = Flat("test_data/test4.flat", debug=False, ignore={'999':'e-resource'})
+1 OCLC updates possible from 1 records read.
+
+
+Test reading a record that already contains subfields of old OCLC numbers.
+
+>>> flat = Flat("test_data/test5.flat", debug=True)
+DEBUG: reading test_data/test5.flat
+DEBUG: found document boundary on line 1
+DEBUG: found form description on line 2
+DEBUG: found TCN on1347755731 on line 4
+DEBUG: found an OCLC number (769428891) on line 6
+DEBUG: found an 035 on line 7 (.035.   |a(Sirsi) 111111111)
+DEBUG: found an 035 on line 9 (.035.   |a(EPL)on1347755731)
 1 OCLC updates possible from 1 records read.

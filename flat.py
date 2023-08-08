@@ -109,16 +109,31 @@ class Flat:
             return False
         # Trim the trailing whitespace and remove the '.'s from either
         # end of the tag number. 
-        tag = split_line[0].strip()[1:-1]
+        tag = split_line[0]
         tag_value = split_line[1].strip()
         for reject_tag, reject_value in self.reject_tags.items():
-            if reject_tag.lower() == tag.lower():
-                # TODO: Improve to test if the value contains the reject value
-                # not just match the entire value. 
-                if reject_value.lower() == tag_value.lower():
-                    self.print_or_log(f"record {tcn} rejected because {tag} contains '{reject_value}'")
+            if reject_tag.lower() in tag.lower(): 
+                if reject_value.lower() in tag_value.lower():
+                    self.print_or_log(f"record {tcn} rejected because {reject_tag} contains '{reject_value}'")
                     return True
         return False
+
+    def reset_record(self):
+        record = {}
+        record['001'] = ''
+        record['form'] = ''
+        record['035'] = []
+        oclc_number = ''
+        oclc_num_count = 0
+        return record, oclc_number, oclc_num_count
+
+    # Tags a list of tag and value, and removes sub fields
+    # returning just the first field. 
+    def get_first_subfield(self, tag_values:list):
+        if len(tag_values) > 1:
+            values = tag_values[1].split("|")
+            if values:
+                return values[0]
 
     # Reads a single bib record
     def _read_bib_records_(self, flat):
@@ -138,6 +153,7 @@ class Flat:
             oclc_num_count = 0
             # This is the number of records read from the flat file.
             records_read = 0
+            missing_oclc_num = 0
             oclc_number = ''
             for l in f:
                 line_num += 1
@@ -155,13 +171,9 @@ class Flat:
                         if oclc_number:
                             records[str(oclc_number)] = record
                         else:
-                            self.print_or_log(f"*warning, rejecting TCN {record['001']} as malformed; possibly missing OCLC number.")
-                    record = {}
-                    record['001'] = ''
-                    record['form'] = ''
-                    record['035'] = []
-                    oclc_number = ''
-                    oclc_num_count = 0
+                            self.print_or_log(f"rejecting {record['001']}, no OCLC number.")
+                            missing_oclc_num += 1
+                    record, oclc_number, oclc_num_count = self.reset_record()
                     continue
                 # FORM=MUSIC 
                 if re.search(form_sentinal, line):
@@ -172,31 +184,40 @@ class Flat:
                     continue
                 # .001. |aon1347755731  
                 if re.search(tcn, line):
-                    record['001'] = line.split("|a")[1]
+                    zero_01 = line.split("|a")
+                    if not zero_01 or len(zero_01) <= 1:
+                        record, oclc_number, oclc_num_count = self.reset_record()
+                        continue
+                    else:
+                        record['001'] = zero_01[1].strip()
                     if self.debug:
                         self.print_or_log(f"DEBUG: found TCN {record['001']} on line {line_num}")
                     continue
                 # Configurable tag and value rejection functionality. Like '250': 'On Order' = 'reject': True.
                 if self.reject_tags:
                     if self.is_reject_record(line, record.get('001')):
-                        record = {}
-                        record['001'] = ''
-                        record['form'] = ''
-                        record['035'] = []
-                        oclc_number = ''
-                        oclc_num_count = 0
+                        record, oclc_number, oclc_num_count = self.reset_record()
                         continue
                 # .035.   |a(OCoLC)987654321
                 # .035.   |a(Sirsi) 111111111
                 if re.search(zero_three_five, line):
                     # If this has an OCoLC then save as a 'set' number otherwise just record it as a regular 035.
                     if re.search(oclc_num_matcher, line):
+                        tag_oclc = line.split("|a(OCoLC)")
+                        oclc_number = self.get_first_subfield(tag_oclc)
+                        if not oclc_number:
+                            self.print_or_log(f"rejecting {record['001']}, malformed OCLC number {line} on {line_num}.")
+                            missing_oclc_num += 1
+                            continue
                         oclc_num_count += 1
-                        oclc_number = line.split("|a(OCoLC)")[1]
                         if self.debug:
                             self.print_or_log(f"DEBUG: found an OCLC number ({oclc_number}) on line {line_num}")
                     else:
-                        record['035'].append(line.split("|a")[1])
+                        zero_35 = line.split("|a")
+                        if not zero_35 or len(zero_35) <= 1:
+                            continue
+                        else:
+                            record['035'].append(zero_35[1])
                         if self.debug:
                             self.print_or_log(f"DEBUG: found an 035 on line {line_num} ({line})")
                     continue
@@ -208,6 +229,8 @@ class Flat:
             self.print_or_log(f"*warning, TCN {record['001']} contains multiple OCLC numbers. Only the last will be checked and updated as necessary.")
         records[str(oclc_number)] = record
         self.print_or_log(f"{len(records)} OCLC updates possible from {records_read} records read.")
+        if missing_oclc_num > 0:
+            self.print_or_log(f"{missing_oclc_num} records were rejected because they didn't have OCLC numbers.")
         return records
 
     # This method will return a 'set' or add list.
@@ -251,7 +274,7 @@ class Flat:
                     s.write(f"*** DOCUMENT BOUNDARY ***" + linesep)
                     s.write(f"{record['form']}" + linesep)
                     s.write(f".001. |a{record['001']}" + linesep)
-                    s.write(f".035.   |a(OCoLC){new_num}" + linesep)
+                    s.write(f".035.   |a(OCoLC){new_num}|z(OCoLC){old_num}" + linesep)
                     for zero35 in record['035']:
                         s.write(f".035.   |a{zero35}" + linesep)
                     update_count += 1
