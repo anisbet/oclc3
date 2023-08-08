@@ -36,7 +36,7 @@ from flat2marcxml import MarcXML
 TEST = False
 #######prod#########
 # This update filters reject bib records based on 'ignore' tags dictionary.
-VERSION='2.02.00'
+VERSION='2.02.01'
 
 # OCLC number search regexes. Lines that start with '+' mean add
 # the record, '-' means delete, and '?' means check the number. 
@@ -555,12 +555,17 @@ def main(argv):
         if 'error' in configs.keys():
             sys.stderr.write(configs.get('error'))
             sys.exit()
-        logger = Log(log_file=configs['report'])
+        logger = Log(log_file=configs.get('report'))
         logger.logit(f"=== starting version {VERSION}", include_timestamp=True)
     else:
         sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
         sys.exit()
 
+    ignore_tags = {}
+    if args.ignore:
+        ignore_tags = args.ignore
+    else:
+        ignore_tags = configs.get('ignore')
     if args.debug:
         logger.logit(f"== vars ==")
         logger.logit(f"check: '{args.check}'")
@@ -617,7 +622,7 @@ def main(argv):
     if args.flat:
         # A Flat object can read and parse flat files as well as return OCLC
         # numbers and update oclc numbers for slim flat file overlay files.
-        flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=args.ignore)
+        flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=ignore_tags)
         set_holdings_lst.extend(flat_manager.get_local_list())
 
     # Compute the difference between the master list and what the receipt list has done,
@@ -645,7 +650,7 @@ def main(argv):
         sys.exit()
 
     # Reclamation report that is both files must exist and be read.
-    if args.local or args.flat and args.remote:
+    if (args.local or args.flat) and args.remote:
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
         set_holdings_lst.clear()
@@ -656,7 +661,7 @@ def main(argv):
         if args.flat:
             if args.debug:
                 sys.stderr.write(f"DEBUG: starting to read holdings from flat file.\n")
-            flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=args.ignore)
+            flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=ignore_tags)
             set_holdings_lst.extend(flat_manager.get_local_list())
         if args.debug:
             sys.stderr.write(f"DEBUG: done.\n")
