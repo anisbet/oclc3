@@ -4,6 +4,32 @@
 
 There are two ways to maintain holdings at OCLC, [batch process](#batch-process) and [web services](#worldcat-metadata-web-service).
 
+Edmonton Public Library (EPL) has decided to move from an automated batch process to the web service. Web services are faster, and offer feedback useful for synchronizing titles between the local library and OCLC.
+
+Here are some strategies a library can use to maintain holdings.
+1) Wipe the slate clean. The library removes all its records from OCLC and repopulates them with their current titles. OCLC refers to this as [reclamation](#oclc3-reclamation).
+2) Incremental updates. The library opts to send periodic updates of catalog additions and deletions.
+3) A combo of 1 and 2. The library sends weekly updates, and annually performs a reclamation. I would recommend this option and time frame for a large library.
+
+This appliction can do much of the heavy lifting for any of these strategies. It is designed to be [automated](#automation), but has some [limitations](#limitations) based on the current level of development.
+
+
+# Automation
+The application can perform the following operations unattended.
+1) Read catalog records in SirsiDynix's flat format, which then can be used with or instead of a `--local` file.
+2) Read the OCLC report if it is [converted from XSLX to CSV](#hints-for-oclc-report-of-holdings).
+
+# Limitations
+Currently `oclc.py` has the following limitations.
+1) OCLC report generation. It should be feasible to set up, run, and collect the OCLC report of holdings, but that work is out of scope for now. The report must be generated through the portal, downloaded, and converted to CSV.
+2) The remote lists may be CSV or a standard list of OCLC numbers. [There is some flexibility in parsing lists](#example-of-a-number-list).
+3) Updating local records between OCLC and the library. Many records supplied by vendors don't include OCLC numbers. Those records need to be converted into OCLC XML and submitted. **It isn't known at this time if the response includes a useful number that can be added to the local record so it can be maintained.**
+
+
+## Hints for OCLC Report of Holdings
+1) Open the `xsls` in `OpenOffice` sheets or `excel` as a **fixed width** document.
+2) Save as `csv` to file .
+3) Use `oclc.py`'s --csv switch to read the report. It will be used with or in lieu of a `--remote` list.
 ### Batch Process
 Previously our library used a batch process. A script ran weekly and collected all the added and modified records from the previous week, formatted them into MARC, and uploaded them to an SFTP site. One challenge of this process is identifying what records have been deleted since they are no longer in the catalog. An additional challenge is that OCLC regularly updates their catalog numbers, and there was no way to feedback this information to the ILS.
 
@@ -55,18 +81,25 @@ database:
 Once set up the script can be run from the command line as follows.
 ## Help
 ```bash
-# For help use...
 python oclc.py --help
 usage: oclc [options]
 
-Maintains holdings in OCLC WorldCat Search.
+Maintains holdings in OCLC WorldCat database.
 
-optional arguments:
+options:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
   -c [/foo/check.lst], --check [/foo/check.lst]
                         Check if the OCLC numbers in the list are valid.
   -d, --debug           turn on debugging.
+  -f [/foo/bibs.flat], --flat [/foo/bibs.flat]
+                        Use a flat file of the bib records collected from the library's ILS instead of going to the trouble of making a '--local' file list. Once the process
+                        runs, this flat file will be modified and converted into a slim flat file ready for use by Symphony's 'catalogmerge' API command. Only records that
+                        require updated OCLC numbers will be output. The records that require updating will contain all document headers, a 001 flexkey as matchpoint, and ALL 035
+                        tags. The OCLC 035 tags will be modified to include new OCLC numbers in the 'a' field and the old OCLC number in the 'z' sub-field. You cannot use '--
+                        local' and '--flat'.
+  -i {"tag_num": "tag text"}, --ignore {"tag_num": "tag text"}
+                        Ignore bib records that have a given tag that contains a specific value.
   -l [/foo/local.lst], --local [/foo/local.lst]
                         Local OCLC numbers list collected from the library's ILS.
   -r [/foo/remote.lst], --remote [/foo/remote.lst]
@@ -75,14 +108,18 @@ optional arguments:
                         OCLC numbers to add or set in WorldCat.
   -u [/foo/bar.txt], --unset [/foo/bar.txt]
                         OCLC numbers to delete from WorldCat.
+  --update              Actually do the work set out in the --update_instructions file.
   --update_instructions UPDATE_INSTRUCTIONS
-                        File that contains instructions to update WorldCat. Default master.lst
+                        File that contains instructions to update WorldCat.
+  --whats_left          Computes the what is left to do in the master list based on what is in the receipt file. The master list is defined by the '--update_instructions' flag,
+                        while the receipt file is always named 'receipt.txt'. If the web service times out or you exceed quotas, you can use this to compare the two files and
+                        create a new master list. By default the master list is over-written with the remaining instructions, including any edits to the master list since the
+                        receipt was created. That is, if the script created a receipt with '-11111111' as deleted, but the master list was later changed to '?11111111', the new
+                        check instruction is preserved and written to the master list. python oclc.py --whats_left --update_instructions=master.lst
   -x XML_RECORDS, --xml_records XML_RECORDS
                         file of MARC21 XML catalog records to submit as special local holdings.
   -y [/foo/test.yaml], --yaml [/foo/test.yaml]
                         alternate YAML file for testing.
-
-See "-h" for help more information.
 ```
 ### Add / Set OCLC numbers
 See [the add documentation](#regular-worldcat-maintenance) for more information.
@@ -205,29 +242,21 @@ Random text on a line   # Ignored.
 2) Once logged in select the `Analytics` tab and make sure you are on the page with the `My Library` heading. If not select `Collection Evaluation` and then the `My Library` button.
 3) Below the summary table select `Export Title List` button, give the report a name and description if desired, and dismiss the dialog box telling you how long it will take. Expect at least **1.5+ hours**.
 4) After the appropriate time has elapsed, re-login to the [portal](https://edmontonpl.share.worldcat.org/wms/cmnd/analytics/myLibrary) and navigate to the `Analytics` tab. Select the `My Files` menu on the left margin of the page, click the `Download Files` button. Download, and unzip the compressed XSL report.
-5) You can use `pandas` or `excel` to open and analyse, but I have more luck with `OpenOffice`.
-**Hint**:
-   1) Open the `xls` in `OpenOffice` sheets as a **fixed width** document.
-   2) Save as `csv` to file `full_cat.csv`.
-   3) Use awk to process: `cat full_cat.csv | awk -F'""' '{print $1}' | awk -F'", "' '{print $2}' | awk -F'")' '{print $1}' > oclcnumbers.txt` to capture all the OCLC numbers.
-      1) **Explanation**: awk 1 splits the file on double-double-quotes, and outputs the first field which is a `HYPERLINK`.
-      2) Awk 2 takes the `HYPERLINK` data and further splits that on the only remaining quotes of the `url` and oclc number. It outputs a line that starts with a the oclc number and ends in `")`.
-      3) Awk 3 further splits on the afore-mentioned `")`, and outputs field 1.
-   4) To check `wc -l full_cat.csv` compared with `wc -l oclcnumbers.txt`.
-   5) To check that all the lines have values use `cat oclcnumbers.txt | pipe.pl -zc0 | wc -l`. It should show the same number of lines as the `csv`.
-1) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
-2) Use `oclc.py` to create a master list by using `--remote=oclcnumbers.txt` and `--local=librarynumbers.txt`. This will create a master list (`master.lst`) in the current directory. Examine the results and see the delta of OCLC and your library. 
+5) You can use `excel` to open and save as CSV, but I use `OpenOffice`.
+
+6) Select all the OCLC numbers from your library's catalog with API. Typically selection is restricted to titles that you want to appear in WorldCat searches; not electronic resources, internet databases, or non-circulating items. See [this section](#library-records) for example instructions for a SirsiDynix Symphony ILS.
+7) Use `oclc.py` to create a master list by using `--remote=oclcnumbers.txt` and `--local=librarynumbers.txt`. Optionally use the `--flat` switch to use the OCLC numbers from a flat file directly. Any numbers found in the flat file will be appended to the `--local` list if provided. This will create a master list (`master.lst`) in the current directory. Examine the results and see the delta of OCLC and your library. 
    1) Records that OCLC are missing are marked with `+`.
    2) Records that OCLC has but your library no longer has are marked with `-`.
    3) Records that don't need attention start with a space (` `).
    4) Lines that start with `?` indicate that the OCLC number should be confirmed.
-3) Use the `--update_instructions=master.lst` as the instruction file and `--update` flag to actually do the work. The order of operations are as follows.
+8) Use the `--update_instructions=master.lst` as the instruction file and `--update` flag to actually do the work. The order of operations are as follows.
    1)  Checks
    2)  Deletes
    3)  Adds
 
 ## Library Records
-**TODO Check this over. The code below only removes the 250 tags not the on order records themselves.**
+**TODO include instructions on how to add 'ignore' tags.**
 The Sympony API to collect data for submission to OCLC is listed below.
 ```bash
 selitem \ 
