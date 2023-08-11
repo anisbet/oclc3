@@ -8,3 +8,4 @@ test: test.yaml
 	python oclcws.py 
 	python oclcrpt.py 
 	python flat2marcxml.py 
+	python holdingsreport.py
