@@ -27,7 +27,7 @@ Currently `oclc.py` has the following limitations.
 
 
 ## Hints for OCLC Report of Holdings
-1) Open the `xsls` in `OpenOffice` sheets or `excel` as a **fixed width** document.
+1) Open the `xsls` in `OpenOffice` sheets and in the `Text Import` modal dialog box click the `Fixed Width` radio button, and from the `Other Options` section select the `Format quoted fields as text` checkbox.
 2) Save as `csv` to file .
 3) Use `oclc.py`'s --csv switch to read the report. It will be used with or in lieu of a `--remote` list.
 ### Batch Process

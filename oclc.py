@@ -28,15 +28,17 @@ from oclcreport import OclcReport
 from flat import Flat
 from log import Log
 from flat2marcxml import MarcXML
+from holdingsreport import HoldingsReport
 
 #######test#########
+# Use this so outputs match doctest expectations.
 # TEST = True
 #######test#########
 #######prod#########
+# Use this for Sandbox or Production. 
 TEST = False
 #######prod#########
-# This update filters reject bib records based on 'ignore' tags dictionary.
-VERSION='2.02.01'
+VERSION='2.03.01'
 
 # OCLC number search regexes. Lines that start with '+' mean add
 # the record, '-' means delete, and '?' means check the number. 
@@ -516,6 +518,7 @@ def main(argv):
     )
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
+    parser.add_argument('--csv', action='store', metavar='[/foo/oclc_report.csv]', help='Read OCLC report as CSV. Numbers are appended to the remote, or unset list.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
     flat_msg = """
     Use a flat file of the bib records collected from the library\'s ILS instead of going to the trouble of making a '--local' file list.
@@ -569,6 +572,7 @@ def main(argv):
     if args.debug:
         logger.logit(f"== vars ==")
         logger.logit(f"check: '{args.check}'")
+        logger.logit(f"check: '{args.csv}'")
         logger.logit(f"debug: '{args.debug}'")
         logger.logit(f"flat: '{args.flat}'")
         logger.logit(f"ignore: '{args.ignore}'")
@@ -606,17 +610,25 @@ def main(argv):
     check_holdings_lst = []
     done_lst           = []
     flat_manager       = None
+
     # Add records to institution's holdings.
     if args.set:
         set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
         
     # delete records from institutional holdings.
     if args.unset:
-        unset_holdings_lst = _read_num_file_(args.unset, 'unset', args.debug)
+        unset_holdings_lst.extend(_read_num_file_(args.unset, 'unset', args.debug))
+        logger.logit(f"read remote list of OCLC numbers: '{args.unset}'")
+
+    # Read delete oclc numbers from the holdings report csv. 
+    if args.csv:
+        holdings_report = HoldingsReport(args.csv, args.debug, logger=logger)
+        unset_holdings_lst.extend(holdings_report.get_remote_numbers())
+        logger.logit(f"read holdings report '{args.csv}'")
 
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
-        check_holdings_lst = _read_num_file_(args.check, 'check', args.debug)
+        check_holdings_lst.extend(_read_num_file_(args.check, 'check', args.debug))
 
     # Create set list from a flat file.
     if args.flat:
@@ -624,6 +636,9 @@ def main(argv):
         # numbers and update oclc numbers for slim flat file overlay files.
         flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=ignore_tags)
         set_holdings_lst.extend(flat_manager.get_local_list())
+
+    # TODO: Wanted, to write out what has been requested to do.
+    write_update_instruction_file(path='oclc_update_instructions.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
 
     # Compute the difference between the master list and what the receipt list has done,
     # then overwrite the master list.
@@ -650,7 +665,7 @@ def main(argv):
         sys.exit()
 
     # Reclamation report that is both files must exist and be read.
-    if (args.local or args.flat) and args.remote:
+    if (args.local or args.flat) and (args.remote or args.csv):
         # Read the list of local holdings. See Readme.md for more information on how
         # to collect OCLC numbers from the ILS.
         set_holdings_lst.clear()
