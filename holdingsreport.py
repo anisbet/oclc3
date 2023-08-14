@@ -21,10 +21,9 @@
 import sys
 from os import linesep
 import os.path as path
-import pandas as pd
 from log import Log
 
-IS_TEST = False
+IS_TEST = True
 
 # This class is responsible for reading and parsing the OCLC holding
 # report into a list. 
@@ -68,26 +67,23 @@ class HoldingsReport:
     #   Optional for testing.
     # return: list of oclc numbers.
     def _read_csv_(self, report:str) -> list:
-        df = pd.read_csv(report, usecols=[0], header=None, delimiter='\t', encoding='unicode_escape')
-        count = 5
-        col_count = 1
-        display_dot = 1000
-        for index, row in df.iterrows():
-            # Lines from OCLC reports typically start like this.
-            # This script extracts the OCLC number from the second parameter of the '=HYPERLINK' function.
-            # =HYPERLINK("http://www.worldcat.org/oclc/267", "267")   Book, Print     History -...
-            # TODO: add better guards for unexpected data. 
-            if row[0]:
-                data = row[0].split(', "')
-                if data:
-                    data = data[1][0:-2]
-                else:
-                    continue
-                if index < count and IS_TEST:
-                    print(f"{index} => {data}")
-                self.oclc_numbers.append(data)
+        line_count = 0
+        with open(report, encoding='ISO-8859-1', mode='r') as csv:
+            for line in csv:
+                fields = line.split('\t')
+                hyperlink = fields[0]
+                if hyperlink:
+                    hyperlink_alt_text = hyperlink.split(', "')
+                    if len(hyperlink_alt_text) > 0:
+                        oclc_num = hyperlink_alt_text[1][0:-2]
+                        if line_count < 5 and IS_TEST:
+                            print(f"{line_count} => {oclc_num}")
+                        self.oclc_numbers.append(oclc_num)
+                    elif self.debug:
+                        self.print_or_log(f"expected hyperlink data on line {line_count}")
+                line_count += 1
         self.print_or_log(f"read {len(self.oclc_numbers)} records.")
-        return self.oclc_numbers
+        return self.oclc_numbers               
 
     def get_remote_numbers(self) ->list:
         return self.oclc_numbers
