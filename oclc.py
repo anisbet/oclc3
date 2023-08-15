@@ -32,13 +32,13 @@ from holdingsreport import HoldingsReport
 
 #######test#########
 # Use this so outputs match doctest expectations.
-# TEST = True
+TEST = True
 #######test#########
 #######prod#########
 # Use this for Sandbox or Production. 
-TEST = False
+# TEST = False
 #######prod#########
-VERSION='2.03.01'
+VERSION='3.00.00_a'
 
 # OCLC number search regexes. Lines that start with '+' mean add
 # the record, '-' means delete, and '?' means check the number. 
