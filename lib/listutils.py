@@ -116,6 +116,9 @@ class FlatListFile(SimpleListFile):
                     number = num_match[0][number_start_pos:]
                     numbers.append(f"{which}{number}")
         return numbers
+
+# Reads oclc.py's log file format and can return a dictionary of
+# original oclc numbers (as keys), and updated OCLC numbers (as values). 
 class LogDictFile:
     def __init__(self, fileName:str, debug:bool=False) -> dict:
         self.list_file = fileName
@@ -156,8 +159,9 @@ class LogDictFile:
         return original_updated_numbers
 
 
-# Determines what type of file reader to use. Reads and parses
-# the file and manages the list of numbers.
+# Reads various files extension type and manages the lists that it reads.
+# It can read lists from .txt, .lst, .csv & .tsv (OCLC form), .flat, and
+# .log, oclc.py's own log file format. 
 class Lister:
     def __init__(self, fileName:str, debug:bool=False):
         self.list_file   = fileName
