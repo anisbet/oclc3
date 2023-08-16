@@ -21,6 +21,7 @@
 
 import os.path as path
 import re
+from os import linesep
 
 # Reads simple lists of integers of which the first in the line are added to 
 # a list.
@@ -153,32 +154,58 @@ class Lister:
     def merge(self, list1:list, list2:list) ->list:
         merged_dict = {}
         merged_list = []
-        for num in list1:
-            key = num[1:]
-            sign= num[0]
-            # print(f"sign={sign}, num={key}")
-            if merged_dict.get(key):
-                # The number is here but has a different sign. 
-                if merged_dict[key] == ' ':
+        for l in [list1, list2]:
+            for num in l:
+                key = num[1:]
+                sign= num[0]
+                if merged_dict.get(key):
+                    # The number is here but has a different sign. 
+                    if merged_dict[key] == ' ':
+                        merged_dict[key] = sign
+                    elif merged_dict[key] != sign:
+                        merged_dict[key] = ' '
+                else:
                     merged_dict[key] = sign
-                elif merged_dict[key] != sign:
-                    merged_dict[key] = ' '
-            else:
-                merged_dict[key] = sign
-        for num in list2:
-            key = num[1:]
-            sign= num[0]
-            if merged_dict.get(key):
-                if merged_dict[key] == ' ':
-                    merged_dict[key] = sign
-                elif merged_dict[key] != sign:
-                    merged_dict[key] = ' '
-            else:
-                merged_dict[key] = sign
         for number in sorted(merged_dict.keys()):
             sign = merged_dict[number]
             merged_list.append(f"{sign}{number}")
         return merged_list
+
+    # Writes a list to file.
+    # param: instructions:list
+    # param: fileName:str name of file to write instructions to. 
+    def write_instructions(self, instructions:list, fileName:str):
+        with open(fileName, encoding='ISO-8859-1', mode='w') as f:
+            for instruction in instructions:
+                f.write(f"{instruction}" + linesep)
+
+    # Reads instruction file. Instruction files are a series of numbers
+    # one-per-line that start with '+', ' ', or '-' followed by an integer
+    # which is expected to be an OCLC number. 
+    # param: fileName:str name of the instruction file to read.
+    # param: action:str default add '+', but can be '-'.
+    # return: list of integers without instruction character.  
+    def read_instruction_numbers(self, fileName:str, action:str='+'):
+        numbers = []
+        with open(fileName, encoding='ISO-8859-1', mode='r') as f:
+            for line in f:
+                if line:
+                    if line[0] == action:
+                        numbers.append(line.rstrip()[1:])
+        return numbers
+
+    # Reads all instructions from file. Instruction files are a series of numbers
+    # one-per-line that start with '+', ' ', or '-' followed by an integer
+    # which is expected to be an OCLC number. 
+    # param: fileName:str name of the instruction file to read. 
+    # return: list of integers without instruction character.  
+    def read_instructions(self, fileName:str):
+        instructions = []
+        with open(fileName, encoding='ISO-8859-1', mode='r') as f:
+            for line in f:
+                if line:
+                    instructions.append(line.rstrip())
+        return instructions
 
 if __name__ == "__main__":
     import doctest

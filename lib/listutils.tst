@@ -84,3 +84,20 @@ Test that two lists that contain two values but one is to do nothing gets change
 >>> l1 = ['+1',' 2', '-2']
 >>> list_reader.merge(l1,l2)
 ['+1', '-2']
+>>> l = list_reader.merge(l1,l2)
+
+Test that we can write instructions to file and read them again.
+>>> list_reader.write_instructions(l, '../test_data/test_instructions.lst')
+
+Test we can read the instructions again
+>>> a = list_reader.read_instruction_numbers('../test_data/test_instructions.lst', action='+')
+>>> print(a)
+['1']
+>>> d = list_reader.read_instruction_numbers('../test_data/test_instructions.lst', action='-')
+>>> print(d)
+['2']
+
+Read all the instructions as they are in the file.
+>>> l = list_reader.read_instructions('../test_data/test_instructions.lst')
+>>> print(l)
+['+1', '-2']
