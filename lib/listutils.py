@@ -65,6 +65,15 @@ class SimpleListFile:
     def get_delete_list(self) -> list:
         return self._parse_('-')
 
+    def get_check_list(self) -> list:
+        return self._parse_('?')
+
+    def get_done_list(self) -> list:
+        return self._parse_('!')
+
+    def get_no_change_list(self) -> list:
+        return self._parse_(' ')
+
 # Reads lines from a CSV report from OCLC which requires special parsing.
 # Example:
 # =HYPERLINK("http://www.worldcat.org/oclc/1834", "1834")	Book, Print	Juvenile ...
@@ -182,14 +191,26 @@ class Lister:
             self.list_reader = LogDictFile(fileName=fileName, debug=debug)
         else:
             print(f"*error, file type: '{file_ext}' not supported yet.")
-        
+    
+    # This method reads a file line by line and returns numbers 
+    # prefixed with the appropriate instruction character.
+    #    IMPORTANT: all numbers read are assumed to be for the same action!
+    # Allowed list characters are '+,-, ,?,!'. 
+    # param: action:str action character for each number match on a given line.
+    #   For more information on reading instructions see List.read_instruction_numbers(). 
     def get_list(self, action:str) -> list:
         if not action:
             return []
-        if action == 'add':
+        elif action == 'add':
             return self.list_reader.get_add_list()
-        if action == 'delete':
+        elif action == 'delete':
             return self.list_reader.get_delete_list()
+        elif action == 'check':
+            return self.list_reader.get_check_list()
+        elif action == 'done':
+            return self.list_reader.get_done_list()
+        else:
+            return self.list_reader.get_no_change_list()
 
     # Reads the transactions from a log and returns a dictionary 
     # of originally submitted oclc numbers as keys, and updated
@@ -237,11 +258,11 @@ class Lister:
     # which is expected to be an OCLC number.
     # param: action:str default add '+', but can be '-'.
     # return: list of integers without instruction character.  
-    def read_instruction_numbers(self, action:str='+'):
+    def read_instruction_numbers(self, action:str):
         numbers = []
         with open(self.list_file, encoding='ISO-8859-1', mode='r') as f:
             for line in f:
-                if line and line[0] == action:
+                if line and line.startswith(action):
                     numbers.append(line.rstrip()[1:])
         return numbers
 

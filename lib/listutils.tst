@@ -101,3 +101,16 @@ Test we can read the instructions again
 >>> list_reader = Lister('../test_data/test1.log')
 >>> list_reader.get_updated_numbers()
 {'10211111111': '211111111', '10222222222': '222222222', '10233333333': '233333333'}
+
+Test that you can get all the different list types of 'add', 'delete', 'check', 'done', and 'other' for no changes.
+>>> list_reader = Lister('../test_data/i.lst')
+>>> list_reader.read_instruction_numbers(action='?')
+['222222']
+>>> list_reader.read_instruction_numbers(action='+')
+['333333']
+>>> list_reader.read_instruction_numbers(action='-')
+['555555']
+>>> list_reader.read_instruction_numbers(action='!')
+['666666']
+>>> list_reader.read_instruction_numbers(action=' ')
+['444444']
