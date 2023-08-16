@@ -19,7 +19,7 @@
 #
 ###############################################################################
 
-import os.path as path
+from os.path import join, dirname, exists, getsize, splitext
 import re
 from os import linesep
 
@@ -43,7 +43,7 @@ class SimpleListFile:
         if self.debug:
             print(f"DEBUG: reading {self.list_file}")
         # Test that the class can read this type of list_file
-        self.file_path, self.file_ext = path.splitext(self.list_file)
+        self.file_path, self.file_ext = splitext(self.list_file)
 
     # Reads and parses the input file returning a list of a given 'type'.
     # Valid types are 'add' and 'del' list. The list is returned with the
@@ -116,6 +116,45 @@ class FlatListFile(SimpleListFile):
                     number = num_match[0][number_start_pos:]
                     numbers.append(f"{which}{number}")
         return numbers
+class LogDictFile:
+    def __init__(self, fileName:str, debug:bool=False) -> dict:
+        self.list_file = fileName
+        self.debug     = debug
+        if self.debug:
+            print(f"DEBUG: reading {self.list_file}")
+    
+    def get_updated(self) -> dict:
+        original_updated_numbers = {}
+        ##############################################
+        # Note: if the log format changes adjust here.
+        ##############################################
+        original_num_regex = re.compile(r'^\+\d+\s')
+        updated_num_regex  = re.compile(r'(updated to)\s\d+\,')
+        num_pos = len('updated to ')
+        add_pos = len('+')
+        with open(self.list_file, encoding='ISO-8859-1', mode='r') as log:
+            line_num = 0
+            for line in log:
+                # Look for lines that contain 'updated to'.
+                # That is the new oclc number. Example:
+                # +1002030249  updated to 968312172, Record not ...
+                # Should return 968312172.
+                new_num_match = re.search(updated_num_regex, line)
+                if not new_num_match:
+                    # Quit search early, there's a lot to do.
+                    continue
+                new_num = new_num_match[0][num_pos:-1]
+                # Look for original number submitted it looks
+                # like '+nnnn...'. Example:
+                # +1002030249  updated to 968312172, Record not ...
+                # Should return +1002030249
+                original_num_match = re.search(original_num_regex, line)
+                if not original_num_match:
+                    continue
+                original_num = original_num_match[0][add_pos:-1]
+                original_updated_numbers[f"{original_num}"] = str(new_num)
+        return original_updated_numbers
+
 
 # Determines what type of file reader to use. Reads and parses
 # the file and manages the list of numbers.
@@ -124,17 +163,22 @@ class Lister:
         self.list_file   = fileName
         self.debug       = debug
         self.list_reader = None
+        # Guarding file tests.
+        if not exists(self.list_file) or getsize(self.list_file) == 0:
+            print(f"The {self.list_file} file is empty (or missing).")
         # Test that the class can read this type of list_file
-        file_path, file_ext = path.splitext(self.list_file)
+        file_path, file_ext = splitext(self.list_file)
         if file_ext.lower() == '.csv' or file_ext.lower() == '.tsv':
             self.list_reader = OclcCsvListFile(fileName=fileName, debug=debug)
         elif file_ext.lower() == '.flat':
             self.list_reader = FlatListFile(fileName=fileName, debug=debug)
         elif file_ext.lower() == '.txt' or file_ext.lower() == '.lst' or file_ext.lower() == '':
             self.list_reader = SimpleListFile(fileName=fileName, debug=debug)
+        elif file_ext.lower() == '.log':
+            self.list_reader = LogDictFile(fileName=fileName, debug=debug)
         else:
             print(f"*error, file type: '{file_ext}' not supported yet.")
-
+        
     def get_list(self, action:str) -> list:
         if not action:
             return []
@@ -142,6 +186,12 @@ class Lister:
             return self.list_reader.get_add_list()
         if action == 'delete':
             return self.list_reader.get_delete_list()
+
+    # Reads the transactions from a log and returns a dictionary 
+    # of originally submitted oclc numbers as keys, and updated
+    # OCLC numbers as values in a dictionary.  
+    def get_updated_numbers(self):
+        return self.list_reader.get_updated()
 
     # Compares two lists with '+', ' ', or '-' instructions and returns
     # a merged list. If duplicate numbers have the different instructions
@@ -172,40 +222,24 @@ class Lister:
         return merged_list
 
     # Writes a list to file.
-    # param: instructions:list
-    # param: fileName:str name of file to write instructions to. 
-    def write_instructions(self, instructions:list, fileName:str):
-        with open(fileName, encoding='ISO-8859-1', mode='w') as f:
+    # param: instructions:list 
+    def write_instructions(self, instructions:list):
+        with open(self.list_file, encoding='ISO-8859-1', mode='w') as f:
             for instruction in instructions:
                 f.write(f"{instruction}" + linesep)
 
     # Reads instruction file. Instruction files are a series of numbers
     # one-per-line that start with '+', ' ', or '-' followed by an integer
-    # which is expected to be an OCLC number. 
-    # param: fileName:str name of the instruction file to read.
+    # which is expected to be an OCLC number.
     # param: action:str default add '+', but can be '-'.
     # return: list of integers without instruction character.  
-    def read_instruction_numbers(self, fileName:str, action:str='+'):
+    def read_instruction_numbers(self, action:str='+'):
         numbers = []
-        with open(fileName, encoding='ISO-8859-1', mode='r') as f:
+        with open(self.list_file, encoding='ISO-8859-1', mode='r') as f:
             for line in f:
-                if line:
-                    if line[0] == action:
-                        numbers.append(line.rstrip()[1:])
+                if line and line[0] == action:
+                    numbers.append(line.rstrip()[1:])
         return numbers
-
-    # Reads all instructions from file. Instruction files are a series of numbers
-    # one-per-line that start with '+', ' ', or '-' followed by an integer
-    # which is expected to be an OCLC number. 
-    # param: fileName:str name of the instruction file to read. 
-    # return: list of integers without instruction character.  
-    def read_instructions(self, fileName:str):
-        instructions = []
-        with open(fileName, encoding='ISO-8859-1', mode='r') as f:
-            for line in f:
-                if line:
-                    instructions.append(line.rstrip())
-        return instructions
 
 if __name__ == "__main__":
     import doctest
