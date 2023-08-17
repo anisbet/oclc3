@@ -2,7 +2,7 @@ from datetime import datetime
 import sys
 
 # Basic logger.
-class Log:
+class Logger:
     
     def __init__(self, log_file:str, debug:bool=False):
         self.log = log_file

@@ -21,7 +21,7 @@ import sys
 import re
 from os.path import exists
 from os import linesep
-from log import Log
+from log import Logger
 
 IS_TEST = False
 
@@ -37,7 +37,7 @@ class Flat:
     # Constructor.
     # param: flat_file:str path to the flat file to be read.
     # param: debug:bool turns on and off extra diagnostic messaging. 
-    # param: logger:Log optional logging. The class will use it if available. 
+    # param: logger:Logger optional logging. The class will use it if available. 
     # param: ignore:dict optional list of tags and values used to filter out 
     #   a bib record from submission to OCLC. For example, if you wanted to 
     #   not submit records that had 'on-order' in the '250' tag the dictionary
@@ -45,7 +45,7 @@ class Flat:
     #   all of those tags will be searched, and if found in any, the record
     #   will be rejected. Tags must be unique, that is you cannot specify
     #   multiple filters for a given tag. 
-    def __init__(self, flat_file:str, debug:bool=False, logger:Log=None, ignore:dict={}):
+    def __init__(self, flat_file:str, debug:bool=False, logger:Logger=None, ignore:dict={}):
         self.flat = flat_file
         self.debug= debug
         self.logger = logger

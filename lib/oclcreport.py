@@ -21,7 +21,7 @@ import json
 from os.path import dirname, join, exists
 from datetime import datetime
 import re
-from log import Log
+from log import Logger
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -35,7 +35,7 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 # * Adds and delete counts shall be reported along with any errors.
 class OclcReport:
 
-    def __init__(self, logger:Log, debug:bool=False):
+    def __init__(self, logger:Logger, debug:bool=False):
         self.debug = debug
         self.checks   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.holdings = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}

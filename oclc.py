@@ -22,11 +22,11 @@ import sys
 from os.path import join, dirname, exists
 import yaml
 import argparse
-from oclcws import OclcService
-from oclcreport import OclcReport
-from flat import Flat
-from log import Log
-from flat2marcxml import MarcXML
+from lib.oclcws import OclcService
+from lib.oclcreport import OclcReport
+from lib.flat import Flat
+from lib.log import Logger
+from lib.flat2marcxml import MarcXML
 
 #######test#########
 # Use this so outputs match doctest expectations.
@@ -55,25 +55,15 @@ def _load_yaml_(yaml_path:str) -> dict:
         config['error'] = msg
     return config
 
-# Used for reporting percents.
-# param: value float value.
-# param: prec integer precision of the returned float. 
-# return: float value of requested precision.  
-def trim_decimals(value, prec:int=2) ->float:
-    f_str = f"%.{prec}f"
-    return float(f_str % round(float(value), prec))
-
-
-
 # Prints a consistent tally message of how things worked out. 
 # param: action string, what type of service called this function. 
 # param: tally dictionary provided by the report object of parsed JSON results. 
-# param: Log object to write to the log file. 
+# param: Logger object to write to the log file. 
 # param: Remaining records, count of records that didn't get processed. This 
 #   can be non-zero if the web service is interupted or you exceed quota of 
 #   web service calls.
 # return: none
-def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
+def print_tally(action:str, tally:dict, logger:Logger, remaining:int=0):
     msg =  f"operation '{action}' results.\n"
     msg += f"          succeeded: {tally['success']}\n"
     msg += f"           warnings: {tally['warnings']}\n"
@@ -89,7 +79,7 @@ def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
 def upload_bib_record(
   flat_records:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not flat_records:
         print_tally('bib upload', {}, logger)
@@ -125,7 +115,7 @@ def upload_bib_record(
 def add_holdings(
   oclc_numbers:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not oclc_numbers:
         print_tally('add / set', {}, logger)
@@ -159,7 +149,7 @@ def add_holdings(
 def check_institutional_holdings(
   oclc_numbers:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not oclc_numbers:
         print_tally('check', {}, logger)
@@ -193,7 +183,7 @@ def check_institutional_holdings(
 def delete_holdings(
   oclc_numbers:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not oclc_numbers:
         print_tally('delete / unset', {}, logger)
@@ -226,40 +216,54 @@ def main(argv):
         description='Maintains holdings in OCLC WorldCat database.',
         epilog='See "--hints" for help more information.'
     )
-    parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
-    parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
-    # parser.add_argument('--csv', action='store', metavar='[/foo/oclc_report.csv]', help='Read OCLC report as CSV. Numbers are appended to the remote, or unset list.')
+    parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
+    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
+    parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     hints_msg = """
     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
-    field of the record(s) in the file.
-    Supported list files are '.flat', '.lst', '.txt', '.csv/.tsv'. The last two are the formats that OCLC uses
-    in their holdings reports. See Readme.md for information on preparing holdings reports.
-    """
-    # parser.add_argument('-f', '--flat', action='store', metavar='[/foo/bibs.flat]', help=f"{flat_msg}")
-    # parser.add_argument('-i', '--ignore', action='store', metavar='{"tag_num": "tag text"}', help=f"Ignore bib records that have a given tag that contains a specific value.")
-    # parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
-    # parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
-    # parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
-    # parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
-    parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
-    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
-    parser.add_argument('--hints', help=f"{hints_msg}")
-    parser.add_argument('--update', action='store_true', default=False, help='Actually do the work.')
-    # parser.add_argument('--update_instructions', action='store', help=f"File that contains instructions to update WorldCat.")
-    # wl_msg = """ 
-    # Computes the what is left to do in the master list based on what is in the receipt file. The master list is defined by the 
-    # '--update_instructions' flag, while the receipt file is always named 'receipt.txt'. If the web service times out or you exceed 
-    # quotas, you can use this to compare the two files and create a new master list. By default the master list is over-written 
-    # with the remaining instructions, including any edits to the master list since the receipt was created. That is, if the script
-    # created a receipt with '-11111111' as deleted, but the master list was later changed to '?11111111', the new check instruction
-    # is preserved and written to the master list.
+    field of the record(s) in a flat file. In that case the first sub-field 'a' is assumed to be the OCLC number.
 
-    # python oclc.py --whats_left --update_instructions=master.lst
-    # """
-    # parser.add_argument('--whats_left', action='store_true', help=f"{wl_msg}")
-    # parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
+    CSV (or TSV) files are assumed to be OCLC holding reports converted from XSLX (see Readme.md for instructions).
+    Currently these reports start with '=HYPERLINK...' and the OCLC number is extracted from the alt text of the
+    first field.
+
+    All other file formats are assumed to contain OCLC numbers somewhere on each line and the first number match
+    is assumed to be the OCLC number. See Readme.md for more information and limitations.
+
+    Supported list files are 
+      * '.flat'
+      * '.lst'
+      * '.txt'
+      * '.csv/.tsv'
+    The last two are the formats that OCLC uses in their holdings reports.
+
+    You may supply an --add and/or --delete file. In any case duplicate requests are removed, and conflicting
+    requests are neutralized. For example, requesting '1111111' in an --add and --delete list will output an
+    instruction of ' 1111111', which will not be submitted to OCLC since it would count against quotas.
+
+    YAML Files
+    ----------
+# Test YAML
+author:          'Andrew Nisbet'
+service: 
+  name:          'WCMetaDataTest'
+  clientId:      '[supplied by OCLC]'
+  secret:        '[supplied by OCLC]'
+  registryId:    '[supplied by OCLC]'
+  principalId:   '[supplied by OCLC]'
+  principalIdns: 'urn:oclc:wms:da'
+  institutionalSymbol: 'OCPSB'
+  branchName:    'MAIN'
+ignoreTags: 
+  '250': 'Expected release'
+hitsQuota:       100
+dataDir:         'data'
+    """
+    parser.add_argument('--hints', help=f"{hints_msg}")
+    parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
+    parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-y', '--yaml', action='store', default='test.yaml', metavar='[/foo/prod.yaml]', help='alternate YAML file for testing. Default to "test.yaml"')
     args = parser.parse_args()
     
@@ -272,7 +276,7 @@ def main(argv):
         if 'error' in configs.keys():
             sys.stderr.write(configs.get('error'))
             sys.exit()
-        logger = Log(log_file=configs.get('report'))
+        logger = Logger(log_file=configs.get('report'))
         hits_quota = configs.get('hitsQuota')
         logger.logit(f"=== starting version {VERSION}", include_timestamp=True)
     else:

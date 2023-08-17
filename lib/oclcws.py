@@ -23,14 +23,14 @@ import requests
 import json
 from os.path import dirname, join, exists
 import sys
-from log import Log
+from log import Logger
 
 TOKEN_CACHE = '_auth_.json'
 
 class OclcService:
 
     # Reads the yaml file for necessary configs.
-    def __init__(self, configs:dict, logger:Log, debug:bool=False):
+    def __init__(self, configs:dict, logger:Logger, debug:bool=False):
         
         self.configs     = configs
         self.client_id   = configs['service']['clientId']

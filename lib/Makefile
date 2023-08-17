@@ -1,6 +1,6 @@
 .PHONY: test
 
-test: test.yaml
+test: ../test.yaml
 	-rm test.log
 	python log.py 
 	python oclcreport.py 
