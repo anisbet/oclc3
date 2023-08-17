@@ -6,6 +6,7 @@ curlAPI.sh
 oclc/
 Docs/
 analysis/
+extras/
 lib/__pycache__/
 __pycache__/
 *.json
