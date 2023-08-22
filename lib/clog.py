@@ -53,4 +53,4 @@ class Logger:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testfile("log.tst")
+    doctest.testfile("clog.tst")

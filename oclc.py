@@ -25,7 +25,7 @@ import argparse
 from lib.oclcws import OclcService
 from lib.oclcreport import OclcReport
 from lib.flat import Flat
-from lib.log import Logger
+from lib.clog import Logger
 from lib.flat2marcxml import MarcXML
 
 #######test#########

@@ -3,12 +3,13 @@
 Test specialized functions in the oclcws module
 
 >>> from oclcws import OclcService
->>> from log import Logger
 >>> import yaml
+>>> from clog import Logger
 >>> logger = Logger('test.log')
 >>> import sys
 >>> from os.path import exists
->>> yaml_file = 'test.yaml'
+>>> yaml_file = '../test.yaml'
+>>> # yaml_file = 'test.yaml'
 >>> configs = {}
 >>> if exists(yaml_file):
 ...     with open(yaml_file) as f:
@@ -29,7 +30,7 @@ Test the list to parameter string.
 
 
 >>> L1 = [1,2,3]
->>> ws = OclcService(configs, logger=logger)
+>>> ws = OclcService(configs)
 >>> ws._list_to_param_str_(L1)
 '1,2,3'
 >>> L1 = ['1','2','3']
@@ -44,7 +45,7 @@ Test the list to parameter string.
 Test if token is expired
 ------------------------
 
->>> oclc = OclcService(configs, logger=logger)
+>>> oclc = OclcService(configs)
 >>> oclc._is_expired_("2023-01-31 20:59:39Z")
 True
 >>> oclc._is_expired_("2050-01-31 00:59:39Z")

@@ -21,7 +21,7 @@ import sys
 import re
 from os.path import exists
 from os import linesep
-from log import Logger
+from clog import Logger
 
 IS_TEST = False
 
@@ -79,6 +79,7 @@ class Flat:
             sys.stderr.write(f"{message}" + linesep)
         else:
             print(f"{message}")
+            
     # Tests the necessary conditions of a well-formed slim record.
     # Those conditions are; it must have a '001', an OCLC number,
     # it must not be empty, and it must have a form identifier.

@@ -23,14 +23,14 @@ import requests
 import json
 from os.path import dirname, join, exists
 import sys
-from log import Logger
+from clog import Logger
 
 TOKEN_CACHE = '_auth_.json'
 
 class OclcService:
 
     # Reads the yaml file for necessary configs.
-    def __init__(self, configs:dict, logger:Logger, debug:bool=False):
+    def __init__(self, configs:dict, logger:Logger=None, debug:bool=False):
         
         self.configs     = configs
         self.client_id   = configs['service']['clientId']
@@ -55,6 +55,21 @@ class OclcService:
         # 'expires_in': 1199, 
         # 'principalIDNS': ''
         # }
+
+    # Wrapper for the logger. Added after the class was written
+    # and to avoid changing tests. 
+    # param: message:str message to either log or print. 
+    # param: to_stderr:bool if True and logger  
+    def print_or_log(self, message:str, to_stderr:bool=False):
+        if self.logger:
+            if to_stderr:
+                self.logger.logit(message, level='error', include_timestamp=True)
+            else:
+                self.logger.logit(message)
+        elif to_stderr:
+            sys.stderr.write(f"{message}" + linesep)
+        else:
+            print(f"{message}")
 
     # Determines if an expiry time has passed.
     # Param: Time in "%Y-%m-%d %H:%M:%SZ" format as it is stored in the authorization JSON
@@ -104,10 +119,10 @@ class OclcService:
         url = f"https://oauth.oclc.org/token?grant_type=client_credentials&scope=WorldCatMetadataAPI"
         # url = f"https://oauth.oclc.org/token?grant_type=client_credentials&scope=WorldCatMetadataAPI%20context:{self.inst_id}"
         if self.debug == True:
-            self.logger.logit(f"request URL: {url}")
+            self.print_or_log(f"request URL: {url}")
         response = requests.post(url, headers=headers)
         if self.debug == True:
-            self.logger.logit(f"{response.json()}")
+            self.print_or_log(f"{response.json()}")
         self.auth_json = response.json()
         # {
         # 'access_token': 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', 
@@ -133,18 +148,18 @@ class OclcService:
             if self._is_expired_(expiry_deadline) == True:
                 self._authenticate_worldcat_metadata_()
                 if self.debug == True:
-                    self.logger.logit(f"refreshed auth token, expiry: {expiry_deadline}")
+                    self.print_or_log(f"refreshed auth token, expiry: {expiry_deadline}")
             else:
                 if self.debug == True:
-                    self.logger.logit(f"auth token is valid until {expiry_deadline}") 
+                    self.print_or_log(f"auth token is valid until {expiry_deadline}") 
         except KeyError:
             self._authenticate_worldcat_metadata_()
             if self.debug == True:
-                self.logger.logit(f"getting new auth token, expiry: {expiry_deadline}")
+                self.print_or_log(f"getting new auth token, expiry: {expiry_deadline}")
         except TypeError:
             self._authenticate_worldcat_metadata_()
             if self.debug == True:
-                self.logger.logit(f"getting new auth token, expiry: {expiry_deadline}")
+                self.print_or_log(f"getting new auth token, expiry: {expiry_deadline}")
         # Cache the results for repeated testing.
         with open(TOKEN_CACHE, 'w', encoding='ISO-8859-1') as f:
             # Use json.dump for streams files, or sockets and dumps for formatted strings.
@@ -387,7 +402,7 @@ class OclcService:
         response = requests.get(url=url, headers=headers)
         if debug:
             print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
-        # self.logger.logit(f"response: '{response.json()}'")
+        # self.print_or_log(f"response: '{response.json()}'")
         # {'entries': [
         #   {'title': '850939592', 
         #     'content': {

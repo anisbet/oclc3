@@ -2,8 +2,7 @@
 
 test: ../test.yaml
 	-rm test.log
-	python log.py 
+	python clog.py 
 	python oclcreport.py 
 	python oclcws.py 
-	python oclcrpt.py 
 	python flat2marcxml.py

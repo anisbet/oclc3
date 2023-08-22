@@ -13,7 +13,7 @@ Tests for web service responses, but also provides reporting.
 
 >>> from oclcreport import OclcReport
 >>> import json
->>> from log import Logger
+>>> from clog import Logger
 >>> logger = Logger('test.log')
 
 >>> DATE_FORMAT = '%Y-%m-%d %H:%M:%S'

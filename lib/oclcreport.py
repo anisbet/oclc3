@@ -21,7 +21,8 @@ import json
 from os.path import dirname, join, exists
 from datetime import datetime
 import re
-from log import Logger
+import sys
+from clog import Logger
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -35,7 +36,7 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 # * Adds and delete counts shall be reported along with any errors.
 class OclcReport:
 
-    def __init__(self, logger:Logger, debug:bool=False):
+    def __init__(self, logger:Logger=None, debug:bool=False):
         self.debug = debug
         self.checks   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.holdings = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
@@ -43,6 +44,21 @@ class OclcReport:
         self.dels     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.bibs     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.logger   = logger
+
+    # Wrapper for the logger. Added after the class was written
+    # and to avoid changing tests. 
+    # param: message:str message to either log or print. 
+    # param: to_stderr:bool if True and logger  
+    def print_or_log(self, message:str, to_stderr:bool=False):
+        if self.logger:
+            if to_stderr:
+                self.logger.logit(message, level='error', include_timestamp=True)
+            else:
+                self.logger.logit(message)
+        elif to_stderr:
+            sys.stderr.write(f"{message}" + linesep)
+        else:
+            print(f"{message}")
 
     # {'title': '46629055', 
     #  'content': 
@@ -72,7 +88,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"check failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.holdings['errors'] += 1
             return False
         b_result= True
@@ -107,7 +123,7 @@ class OclcReport:
                 except KeyError as fx:
                     reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
@@ -138,7 +154,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"check failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.checks['errors'] += 1
             return False
         b_result= True
@@ -173,7 +189,7 @@ class OclcReport:
                 except KeyError as fx:
                     reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
@@ -196,7 +212,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"set failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.adds['errors'] += 1
             return False
         b_result= True
@@ -227,7 +243,7 @@ class OclcReport:
                 except KeyError as ex:
                     reported_error = f"JSON: {json_data}"
                 msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 self.adds['errors'] += 1
                 results.append(msg)
                 b_result = False
@@ -251,7 +267,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"delete failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.dels['errors'] += 1
             return False
         # Otherwise carry on parsing results.
@@ -284,7 +300,7 @@ class OclcReport:
                 except KeyError as ex:
                     reported_error = f"JSON: {json_data}"
                 msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 self.dels['errors'] += 1
                 results.append(msg)
                 b_result = False
