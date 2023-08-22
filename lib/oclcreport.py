@@ -49,16 +49,30 @@ class OclcReport:
     # and to avoid changing tests. 
     # param: message:str message to either log or print. 
     # param: to_stderr:bool if True and logger  
-    def print_or_log(self, message:str, to_stderr:bool=False):
-        if self.logger:
-            if to_stderr:
-                self.logger.logit(message, level='error', include_timestamp=True)
+    def print_or_log(self, message, to_stderr:bool=False):
+        if isinstance(message, list):
+            if self.logger:
+                if to_stderr:
+                    self.logger.logem(message, level='error', include_timestamp=True)
+                else:
+                    self.logger.logem(message)
+            elif to_stderr:
+                for m in message:
+                    sys.stderr.write(f"{m}" + linesep)
             else:
-                self.logger.logit(message)
-        elif to_stderr:
-            sys.stderr.write(f"{message}" + linesep)
+                for m in message:
+                    print(f"{message}")
         else:
-            print(f"{message}")
+            if self.logger:
+                if to_stderr:
+                    self.logger.logit(message, level='error', include_timestamp=True)
+                else:
+                    self.logger.logit(message)
+            elif to_stderr:
+                sys.stderr.write(f"{message}" + linesep)
+            else:
+                print(f"{message}")
+
 
     # {'title': '46629055', 
     #  'content': 
@@ -127,7 +141,7 @@ class OclcReport:
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
-        self.logger.logem(results)
+        self.print_or_log(results)
         return b_result
 
     # Interprets the JSON response from the 
@@ -193,7 +207,7 @@ class OclcReport:
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
-        self.logger.logem(results)
+        self.print_or_log(results)
         return b_result
 
     # Parses the response from the OCLC set holdings request.
@@ -247,7 +261,7 @@ class OclcReport:
                 self.adds['errors'] += 1
                 results.append(msg)
                 b_result = False
-        self.logger.logem(results)
+        self.print_or_log(results)
         return b_result
 
     # Checks the results of the delete transaction.
@@ -304,7 +318,7 @@ class OclcReport:
                 self.dels['errors'] += 1
                 results.append(msg)
                 b_result = False
-        self.logger.logem(results)
+        self.print_or_log(results)
         return b_result
 
     # Parses an expected (XML) web service result.  
