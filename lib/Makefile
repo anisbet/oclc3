@@ -5,4 +5,5 @@ test: ../test.yaml
 	python clog.py 
 	python oclcreport.py 
 	python oclcws.py 
+	python listutils.py
 	python flat2marcxml.py

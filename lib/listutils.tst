@@ -86,6 +86,31 @@ Test that two lists that contain two values but one is to do nothing gets change
 ['+1', '-2']
 >>> l = list_reader.merge(l1,l2)
 
+Test that instructions to add or delete are overridden by done list
+>>> l2 = ['+1','-2', '!3']
+>>> l1 = ['!1','!2', '+3']
+>>> list_reader.merge(l1,l2)
+['!1', '!2', '!3']
+
+>>> l2 = ['+1','-2', '!3']
+>>> l1 = ['!1','!2', '+3', ' 4']
+>>> list_reader.merge(l1,l2)
+['!1', '!2', '!3', ' 4']
+
+>>> l1 = ['+1','-2', '!3']
+>>> l2 = ['!1','!2', '+3', ' 4']
+>>> list_reader.merge(l1,l2)
+['!1', '!2', '!3', ' 4']
+
+>>> l2 = ['+1','-2', '!3']
+>>> l1 = ['!1','!2', '+3', '?4']
+>>> list_reader.merge(l1,l2)
+['!1', '!2', '!3', '?4']
+>>> l1 = ['+1','-2', '!3', ' 4']
+>>> l2 = ['!1','!2', '+3', '?4']
+>>> list_reader.merge(l1,l2)
+['!1', '!2', '!3', '?4']
+
 Test that we can write instructions to file and read them again.
 >>> list_reader = Lister('../test_data/test_instructions.lst')
 >>> list_reader.write_instructions(l)

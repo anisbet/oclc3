@@ -209,8 +209,11 @@ class Lister:
             return self.list_reader.get_check_list()
         elif action == 'done':
             return self.list_reader.get_done_list()
-        else:
+        elif action == '':
             return self.list_reader.get_no_change_list()
+        else:
+            self.logger.logit(f"*unknown list type request '{action}'!")
+            return []
 
     # Reads the transactions from a log and returns a dictionary 
     # of originally submitted oclc numbers as keys, and updated
@@ -222,7 +225,11 @@ class Lister:
     # a merged list. If duplicate numbers have the different instructions
     # the instruction character is replaced with a space ' ' character. 
     # If there are duplicate numbers and they are both '+' or '-', the 
-    # duplicate is removed.
+    # duplicate is removed. 
+    # Order of precidence: 
+    #   * '!' trumps all other actions. 
+    #   * when 2 values match, if their signs conflict they cancel to ' '. 
+    #   * when 2 values match, any other action trumps ' '. 
     # param: list1:list of either adds, deletes, or even a mixture of both or ' '.
     # param: list2:list of either adds, deletes, or even a mixture of both or ' '.
     # return: list of instructions deduped with conflicting instructions set to ' '.
@@ -233,12 +240,19 @@ class Lister:
             for num in l:
                 key = num[1:]
                 sign= num[0]
-                if merged_dict.get(key):
-                    # The number is here but has a different sign. 
-                    if merged_dict[key] == ' ':
-                        merged_dict[key] = sign
-                    elif merged_dict[key] != sign:
+                if sign == '!':
+                    merged_dict[key] = sign
+                    continue
+                stored_sign = merged_dict.get(key)
+                if stored_sign:
+                    if stored_sign == '!':
+                        continue
+                    elif (stored_sign == '+' and sign == '-') or (stored_sign == '-' and sign == '+'):
                         merged_dict[key] = ' '
+                    elif stored_sign == ' ':
+                        merged_dict[key] = sign
+                    else: # '+', '?', '-'
+                        merged_dict[key] = sign
                 else:
                     merged_dict[key] = sign
         for number in sorted(merged_dict.keys()):

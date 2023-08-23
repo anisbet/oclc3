@@ -217,9 +217,10 @@ def main(argv):
         epilog='See "--hints" for help more information.'
     )
     parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
-    parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
-    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
     parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
+    parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
+    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
+    parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
     hints_msg = """
     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
@@ -262,6 +263,7 @@ hitsQuota:       100
 dataDir:         'data'
     """
     parser.add_argument('--hints', help=f"{hints_msg}")
+    parser.add_argument('--log', action='store', default='oclc.log', metavar='[/foo/oclc_YYYY-MM-DD.log]', help=f"Log file.")
     parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-y', '--yaml', action='store', default='test.yaml', metavar='[/foo/prod.yaml]', help='alternate YAML file for testing. Default to "test.yaml"')
@@ -276,7 +278,7 @@ dataDir:         'data'
         if 'error' in configs.keys():
             sys.stderr.write(configs.get('error'))
             sys.exit()
-        logger = Logger(log_file=configs.get('report'))
+        logger = Logger(log_file=args.log)
         hits_quota = configs.get('hitsQuota')
         logger.logit(f"=== starting version {VERSION}", include_timestamp=True)
     else:
@@ -303,24 +305,25 @@ dataDir:         'data'
     unset_holdings_lst = []
     check_holdings_lst = []
     done_lst           = []
-    
 
     # Add records to institution's holdings.
     if args.add:
-        print(f"currently not supported.")
-        pass
+        lister = Lister(args.add, debug=args.debug)
+        set_holdings_lst = lister.get_list('add')
         
     # delete records from institutional holdings.
     if args.delete:
-        print(f"currently not supported.")
-        pass
+        lister = Lister(args.delete, debug=args.debug)
+        unset_holdings_lst = lister.get_list('delete')
 
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
-        print(f"currently not supported.")
-        pass
+        lister = Lister(args.check, debug=args.debug)
+        check_holdings_lst = lister.get_list('check')
 
-    
+    if args.done:
+        lister = Lister(args.done, debug=args.debug)
+        check_holdings_lst = lister.get_list('done')
 
     # Call the web service with the appropriate list, and capture results.
     # try:
