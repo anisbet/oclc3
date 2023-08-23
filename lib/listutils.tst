@@ -41,12 +41,12 @@ DEBUG: reading ../test_data/test5.flat
 Putting it together...
 >>> from listutils import Lister
 >>> list_reader = Lister("../test_data/r1.csv")
->>> list_reader.get_list('add')
+>>> list_reader.get_list('+')
 ['+267', '+1210', '+1834']
->>> list_reader.get_list('delete')
+>>> list_reader.get_list('-')
 ['-267', '-1210', '-1834']
 >>> list_reader = Lister("../test_data/dirty.txt")
->>> list_reader.get_list('delete')
+>>> list_reader.get_list('-')
 ['-123456', '-123456', '-7756632', '-7756632', '-654321', '-7756632', '-7756632', '-7756632', '-7756632']
 >>> l1 = ['+1','+2']
 >>> l2 = ['-1','-2']

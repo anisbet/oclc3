@@ -201,15 +201,15 @@ class Lister:
     def get_list(self, action:str) -> list:
         if not action:
             return []
-        elif action == 'add':
+        elif action == '+':
             return self.list_reader.get_add_list()
-        elif action == 'delete':
+        elif action == '-':
             return self.list_reader.get_delete_list()
-        elif action == 'check':
+        elif action == '?':
             return self.list_reader.get_check_list()
-        elif action == 'done':
+        elif action == '!':
             return self.list_reader.get_done_list()
-        elif action == '':
+        elif action == '' or action == ' ':
             return self.list_reader.get_no_change_list()
         else:
             self.logger.logit(f"*unknown list type request '{action}'!")
