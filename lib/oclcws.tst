@@ -4,8 +4,6 @@ Test specialized functions in the oclcws module
 
 >>> from oclcws import OclcService
 >>> import yaml
->>> from clog import Logger
->>> logger = Logger('test.log')
 >>> import sys
 >>> from os.path import exists
 >>> yaml_file = '../test.yaml'

@@ -176,6 +176,7 @@ class Lister:
         self.list_file   = fileName
         self.debug       = debug
         self.list_reader = None
+        self.flat        = False
         # Guarding file tests.
         if not exists(self.list_file) or getsize(self.list_file) == 0:
             print(f"The {self.list_file} file is empty (or missing).")
@@ -185,6 +186,7 @@ class Lister:
             self.list_reader = OclcCsvListFile(fileName=fileName, debug=debug)
         elif file_ext.lower() == '.flat':
             self.list_reader = FlatListFile(fileName=fileName, debug=debug)
+            self.flat = True
         elif file_ext.lower() == '.txt' or file_ext.lower() == '.lst' or file_ext.lower() == '':
             self.list_reader = SimpleListFile(fileName=fileName, debug=debug)
         elif file_ext.lower() == '.log':
@@ -220,6 +222,17 @@ class Lister:
     # OCLC numbers as values in a dictionary.  
     def get_updated_numbers(self):
         return self.list_reader.get_updated()
+
+    # Tests if the lister is managing a flat file or not. 
+    # return: True if the lister read a flat file, and false otherwise.  
+    def is_flat_file(self) ->bool:
+        return self.flat
+class InstructionManager:
+    def __init__(self, fileName:str, debug:bool=False) -> dict:
+        self.instruction_file = fileName
+        self.debug = debug
+        if self.debug:
+            print(f"DEBUG: reading {self.instruction_file}")
 
     # Compares two lists with '+', ' ', or '-' instructions and returns
     # a merged list. If duplicate numbers have the different instructions
@@ -263,9 +276,9 @@ class Lister:
         return merged_list
 
     # Writes a list to file.
-    # param: instructions:list 
+    # param: instructions:list   
     def write_instructions(self, instructions:list):
-        with open(self.list_file, encoding='ISO-8859-1', mode='w') as f:
+        with open(self.instruction_file, encoding='ISO-8859-1', mode='w') as f:
             for instruction in instructions:
                 f.write(f"{instruction}" + linesep)
 
@@ -276,7 +289,7 @@ class Lister:
     # return: list of integers without instruction character.  
     def read_instruction_numbers(self, action:str):
         numbers = []
-        with open(self.list_file, encoding='ISO-8859-1', mode='r') as f:
+        with open(self.instruction_file, encoding='ISO-8859-1', mode='r') as f:
             for line in f:
                 if line and line.startswith(action):
                     numbers.append(line.rstrip()[1:])

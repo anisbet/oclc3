@@ -40,6 +40,9 @@ DEBUG: reading ../test_data/test5.flat
 
 Putting it together...
 >>> from listutils import Lister
+>>> list_reader = Lister("../test_data/test5.flat")
+>>> list_reader.is_flat_file()
+True
 >>> list_reader = Lister("../test_data/r1.csv")
 >>> list_reader.get_list('+')
 ['+267', '+1210', '+1834']
@@ -48,102 +51,127 @@ Putting it together...
 >>> list_reader = Lister("../test_data/dirty.txt")
 >>> list_reader.get_list('-')
 ['-123456', '-123456', '-7756632', '-7756632', '-654321', '-7756632', '-7756632', '-7756632', '-7756632']
+
+Test you can read a dictionary from the logs produced by oclc.py
+>>> list_reader = Lister('../test_data/test1.log')
+>>> list_reader.get_updated_numbers()
+{'10211111111': '211111111', '10222222222': '222222222', '10233333333': '233333333'}
+
+Test InstructionManager
+>>> from listutils import InstructionManager
+>>> instructor = InstructionManager('someFile.inst')
 >>> l1 = ['+1','+2']
 >>> l2 = ['-1','-2']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 [' 1', ' 2']
 >>> l1 = ['+1','+2']
 >>> l2 = ['-3','-4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '+2', '-3', '-4']
 >>> l1 = ['+1','-2']
 >>> l2 = ['-2','-4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '-2', '-4']
 
 Test that two lists that contain two values but one is to do nothing gets changed to required action.
 >>> l1 = ['+1',' 2']
 >>> l2 = ['-2','-4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '-2', '-4']
 >>> l1 = ['+1',' 2']
 >>> l2 = [' 2','-4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', ' 2', '-4']
 
 >>> l1 = ['+1','-2']
 >>> l2 = []
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '-2']
 
 >>> l2 = ['+1','-2']
 >>> l1 = []
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '-2']
 >>> l2 = ['+1','-2']
 >>> l1 = ['+1',' 2', '-2']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '-2']
->>> l = list_reader.merge(l1,l2)
+>>> l = instructor.merge(l1,l2)
 
 Test that instructions to add or delete are overridden by done list
 >>> l2 = ['+1','-2', '!3']
 >>> l1 = ['!1','!2', '+3']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['!1', '!2', '!3']
 
 >>> l2 = ['+1','-2', '!3']
 >>> l1 = ['!1','!2', '+3', ' 4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['!1', '!2', '!3', ' 4']
 
 >>> l1 = ['+1','-2', '!3']
 >>> l2 = ['!1','!2', '+3', ' 4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['!1', '!2', '!3', ' 4']
 
 >>> l2 = ['+1','-2', '!3']
 >>> l1 = ['!1','!2', '+3', '?4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['!1', '!2', '!3', '?4']
 >>> l1 = ['+1','-2', '!3', ' 4']
 >>> l2 = ['!1','!2', '+3', '?4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['!1', '!2', '!3', '?4']
 >>> l2 = ['+1','-2', '!3', ' 4']
 >>> l1 = ['!1','!2', '+3', '?4']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['!1', '!2', '!3', '?4']
 >>> l2 = ['+1','-2', '!3', ' 4']
 >>> l1 = ['+5','-6', '!7', '?8']
->>> list_reader.merge(l1,l2)
+>>> instructor.merge(l1,l2)
 ['+1', '-2', '!3', ' 4', '+5', '-6', '!7', '?8']
 
 Test that we can write instructions to file and read them again.
->>> list_reader = Lister('../test_data/test_instructions.lst')
->>> list_reader.write_instructions(l)
+>>> instructor = InstructionManager('../test_data/test_instructions.lst')
+>>> instructor.write_instructions(l)
 
 Test we can read the instructions again
->>> a = list_reader.read_instruction_numbers(action='+')
+>>> a = instructor.read_instruction_numbers(action='+')
 >>> print(a)
 ['1']
->>> d = list_reader.read_instruction_numbers(action='-')
+>>> d = instructor.read_instruction_numbers(action='-')
 >>> print(d)
 ['2']
 
->>> list_reader = Lister('../test_data/test1.log')
->>> list_reader.get_updated_numbers()
-{'10211111111': '211111111', '10222222222': '222222222', '10233333333': '233333333'}
-
 Test that you can get all the different list types of 'add', 'delete', 'check', 'done', and 'other' for no changes.
->>> list_reader = Lister('../test_data/i.lst')
->>> list_reader.read_instruction_numbers(action='?')
+>>> instructor = InstructionManager('../test_data/i.lst')
+>>> instructor.read_instruction_numbers(action='?')
 ['222222']
->>> list_reader.read_instruction_numbers(action='+')
+>>> instructor.read_instruction_numbers(action='+')
 ['333333']
->>> list_reader.read_instruction_numbers(action='-')
+>>> instructor.read_instruction_numbers(action='-')
 ['555555']
->>> list_reader.read_instruction_numbers(action='!')
+>>> instructor.read_instruction_numbers(action='!')
 ['666666']
->>> list_reader.read_instruction_numbers(action=' ')
+>>> instructor.read_instruction_numbers(action=' ')
 ['444444']
+
+
+Test multiple list merging
+>>> a = ['+1','+2']
+>>> d = ['-2', '-3']
+>>> c = ['?3', '?4']
+>>> f = ['!4', '!5']
+>>> n = [' 5', ' 6']
+>>> master = instructor.merge(a, d)
+>>> master
+['+1', ' 2', '-3']
+>>> master = instructor.merge(master, c)
+>>> master
+['+1', ' 2', '?3', '?4']
+>>> master = instructor.merge(master, f)
+>>> master
+['+1', ' 2', '?3', '!4', '!5']
+>>> master = instructor.merge(master, n)
+>>> master
+['+1', ' 2', '?3', '!4', '!5', ' 6']

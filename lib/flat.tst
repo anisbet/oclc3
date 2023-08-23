@@ -1,6 +1,6 @@
 >>> from flat import Flat 
->>> flat = Flat("test_data/test.flat", debug=True)
-DEBUG: reading test_data/test.flat
+>>> flat = Flat("../test_data/test.flat", debug=True)
+DEBUG: reading ../test_data/test.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN on1347755731 on line 4
@@ -10,8 +10,8 @@ DEBUG: found an OCLC number (77777777) on line 8
 *warning, TCN on1347755731 contains multiple OCLC numbers. Only the last will be checked and updated as necessary.
 1 OCLC updates possible from 1 records read.
 
->>> flat = Flat("test_data/test2.flat", debug=True)
-DEBUG: reading test_data/test2.flat
+>>> flat = Flat("../test_data/test2.flat", debug=True)
+DEBUG: reading ../test_data/test2.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN ocn779882439 on line 4
@@ -28,8 +28,8 @@ DEBUG: found an OCLC number (782078599) on line 59
 DEBUG: found an 035 on line 60 (.035.   |a(CaAE) o782078599)
 2 OCLC updates possible from 2 records read.
 
->>> flat = Flat("test_data/test3.flat", debug=True)
-DEBUG: reading test_data/test3.flat
+>>> flat = Flat("../test_data/test3.flat", debug=True)
+DEBUG: reading ../test_data/test3.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN ocn779882439 on line 4
@@ -56,12 +56,12 @@ DEBUG: found an 035 on line 107 (.035.   |a(ULS) epl01318816)
 
 
 Test update_and_write_slim_flat() method
-Given the flat file 'test_data/test.flat'
+Given the flat file '../test_data/test.flat'
 the method should generate a well formed
 slim flat record.
 
->>> flat = Flat("test_data/test.flat", debug=True)
-DEBUG: reading test_data/test.flat
+>>> flat = Flat("../test_data/test.flat", debug=True)
+DEBUG: reading ../test_data/test.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN on1347755731 on line 4
@@ -94,27 +94,27 @@ logs then update and output a slim flat file.
 >>> flat.update_and_write_slim_flat(updated_from_log_dict)
 Total flat records submitted: 1
 OCLC request-to-update responses: 1
-Total bib updates written to test_data/test.flat.updated: 1
+Total bib updates written to ../test_data/test.flat.updated: 1
 True
 
 Test the is_reject_record() method works for record with 250 tag ignoring case.
->>> flat = Flat("test_data/test4.flat", debug=False, ignore={'250':'ON-ORDER'})
+>>> flat = Flat("../test_data/test4.flat", debug=False, ignore={'250':'ON-ORDER'})
 record on1347755731 rejected because 250 contains 'ON-ORDER'
 0 OCLC updates possible from 1 records read.
 
 Test record passes if the ignore dictionary is empty
->>> flat = Flat("test_data/test4.flat", debug=False, ignore={})
+>>> flat = Flat("../test_data/test4.flat", debug=False, ignore={})
 1 OCLC updates possible from 1 records read.
 
 Test record passes if record doesn't contain the / a reject tag.
->>> flat = Flat("test_data/test4.flat", debug=False, ignore={'999':'e-resource'})
+>>> flat = Flat("../test_data/test4.flat", debug=False, ignore={'999':'e-resource'})
 1 OCLC updates possible from 1 records read.
 
 
 Test reading a record that already contains subfields of old OCLC numbers.
 
->>> flat = Flat("test_data/test5.flat", debug=True)
-DEBUG: reading test_data/test5.flat
+>>> flat = Flat("../test_data/test5.flat", debug=True)
+DEBUG: reading ../test_data/test5.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN on1347755731 on line 4

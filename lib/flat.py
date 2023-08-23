@@ -21,7 +21,6 @@ import sys
 import re
 from os.path import exists
 from os import linesep
-from clog import Logger
 
 IS_TEST = False
 
@@ -45,10 +44,9 @@ class Flat:
     #   all of those tags will be searched, and if found in any, the record
     #   will be rejected. Tags must be unique, that is you cannot specify
     #   multiple filters for a given tag. 
-    def __init__(self, flat_file:str, debug:bool=False, logger:Logger=None, ignore:dict={}):
+    def __init__(self, flat_file:str, debug:bool=False, ignore:dict={}):
         self.flat = flat_file
         self.debug= debug
-        self.logger = logger
         self.reject_tags = ignore
         if self.debug:
             print(f"DEBUG: reading {self.flat}")
@@ -70,12 +68,7 @@ class Flat:
     # param: message:str message to either log or print. 
     # param: to_stderr:bool if True and logger  
     def print_or_log(self, message:str, to_stderr:bool=False):
-        if self.logger:
-            if to_stderr:
-                self.logger.logit(message, level='error', include_timestamp=True)
-            else:
-                self.logger.logit(message)
-        elif to_stderr:
+        if to_stderr:
             sys.stderr.write(f"{message}" + linesep)
         else:
             print(f"{message}")

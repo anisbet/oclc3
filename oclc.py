@@ -25,16 +25,17 @@ import argparse
 from lib.oclcws import OclcService
 from lib.oclcreport import OclcReport
 from lib.flat import Flat
-from lib.clog import Logger
+from log import Logger
+from lib.listutils import Lister, InstructionManager
 from lib.flat2marcxml import MarcXML
 
 #######test#########
 # Use this so outputs match doctest expectations.
-TEST = True
+# TEST = True
 #######test#########
 #######prod#########
 # Use this for Sandbox or Production. 
-# TEST = False
+TEST = False
 #######prod#########
 VERSION='3.00.00_a'
 
@@ -216,11 +217,7 @@ def main(argv):
         description='Maintains holdings in OCLC WorldCat database.',
         epilog='See "--hints" for help more information.'
     )
-    parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
-    parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
-    parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
-    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
-    parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
+    
     hints_msg = """
     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
@@ -262,9 +259,15 @@ ignoreTags:
 hitsQuota:       100
 dataDir:         'data'
     """
+    parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
+    parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
+    parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
+    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
+    parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
     parser.add_argument('--hints', help=f"{hints_msg}")
+    parser.add_argument('--instructions', action='store', default='instructions.lst', metavar='[/foo/instructions.lst]', help='OCLC update instructions file name.')
     parser.add_argument('--log', action='store', default='oclc.log', metavar='[/foo/oclc_YYYY-MM-DD.log]', help=f"Log file.")
-    parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
+    parser.add_argument('--run', action='store', default='instructions.lst', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-y', '--yaml', action='store', default='test.yaml', metavar='[/foo/prod.yaml]', help='alternate YAML file for testing. Default to "test.yaml"')
     args = parser.parse_args()
@@ -287,18 +290,22 @@ dataDir:         'data'
 
     if args.debug:
         logger.logit(f"== vars ==")
+        logger.logit(f"add: '{args.add}'")
+        logger.logit(f"delete: '{args.delete}'")
         logger.logit(f"check: '{args.check}'")
+        logger.logit(f"done: '{args.done}'")
         logger.logit(f"debug: '{args.debug}'")
-        logger.logit(f"update: '{args.update_instructions}'")
+        logger.logit(f"instructions: '{args.instructions}'")
+        logger.logit(f"run: '{args.run}'")
         logger.logit(f"yaml: '{yaml_file}'")
         logger.logit(f"hits quota: '{hits_quota}'")
         logger.logit(f"== vars ==\n")
 
     # Upload XML MARC21 records.
-    if args.xml_records:
-        # TODO: Waiting for OCLC to respond with answers to why the XML throws an error. 
-        print(f"currently not supported.")
-        pass
+    # if args.xml_records:
+    #     # TODO: Waiting for OCLC to respond with answers to why the XML throws an error. 
+    #     print(f"currently not supported.")
+    #     pass
     
     # Two lists, one for adding holdings and one for deleting holdings. 
     set_holdings_lst   = []
@@ -309,22 +316,34 @@ dataDir:         'data'
     # Add records to institution's holdings.
     if args.add:
         lister = Lister(args.add, debug=args.debug)
-        set_holdings_lst = lister.get_list('add')
+        set_holdings_lst = lister.get_list('+')
         
     # delete records from institutional holdings.
     if args.delete:
         lister = Lister(args.delete, debug=args.debug)
-        unset_holdings_lst = lister.get_list('delete')
+        unset_holdings_lst = lister.get_list('-')
 
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
         lister = Lister(args.check, debug=args.debug)
-        check_holdings_lst = lister.get_list('check')
+        check_holdings_lst = lister.get_list('?')
 
     if args.done:
         lister = Lister(args.done, debug=args.debug)
-        check_holdings_lst = lister.get_list('done')
+        check_holdings_lst = lister.get_list('!')
 
+    # Merge any and all lists.  
+    instruction_manager = InstructionManager(args.instructions, debug=args.debug)
+    instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst)
+    instruction_list = instruction_manager.merge(instruction_list, check_holdings_lst)
+    instruction_list = instruction_manager.merge(instruction_list, done_lst)
+    # Output the instructions list. 
+    instruction_manager.write_instructions(instruction_list)
+     
+    if args.run:
+        # TODO: if args.run exists, load it as an instruction list. Load instruction list. 
+        # TODO: Output update list 
+        pass
     # Call the web service with the appropriate list, and capture results.
     # try:
     #     if args.update:

@@ -22,7 +22,6 @@ from os.path import dirname, join, exists
 from datetime import datetime
 import re
 import sys
-from clog import Logger
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -36,14 +35,13 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 # * Adds and delete counts shall be reported along with any errors.
 class OclcReport:
 
-    def __init__(self, logger:Logger=None, debug:bool=False):
+    def __init__(self, debug:bool=False):
         self.debug = debug
         self.checks   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.holdings = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.adds     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.dels     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.bibs     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
-        self.logger   = logger
 
     # Wrapper for the logger. Added after the class was written
     # and to avoid changing tests. 
@@ -51,25 +49,15 @@ class OclcReport:
     # param: to_stderr:bool if True and logger  
     def print_or_log(self, message, to_stderr:bool=False):
         if isinstance(message, list):
-            if self.logger:
-                if to_stderr:
-                    self.logger.logem(message, level='error', include_timestamp=True)
-                else:
-                    self.logger.logem(message)
-            elif to_stderr:
+            if to_stderr:
                 for m in message:
-                    sys.stderr.write(f"{m}" + linesep)
+                    sys.stderr.write(f"{m}\n")
             else:
                 for m in message:
-                    print(f"{message}")
+                    print(f"{m}")
         else:
-            if self.logger:
-                if to_stderr:
-                    self.logger.logit(message, level='error', include_timestamp=True)
-                else:
-                    self.logger.logit(message)
-            elif to_stderr:
-                sys.stderr.write(f"{message}" + linesep)
+            if to_stderr:
+                sys.stderr.write(f"{message}\n")
             else:
                 print(f"{message}")
 

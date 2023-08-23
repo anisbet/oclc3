@@ -13,8 +13,6 @@ Tests for web service responses, but also provides reporting.
 
 >>> from oclcreport import OclcReport
 >>> import json
->>> from clog import Logger
->>> logger = Logger('test.log')
 
 >>> DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -91,7 +89,7 @@ Tests for web service responses, but also provides reporting.
 ...   }
 ... ]
 ... }""")
->>> report = OclcReport(logger=logger)
+>>> report = OclcReport()
 >>> report.check_response(200, check_response)
 ?12345  Record confirmed
 ?67890  updated to 6777790
@@ -111,7 +109,7 @@ Test the delete response
 ------------------------
 
 >>> delete_response = check_response
->>> report = OclcReport(logger=logger)
+>>> report = OclcReport()
 >>> report.delete_response(207, delete_response)
 -12345  deleted
 -67890  updated to 6777790, Record found.
@@ -146,6 +144,6 @@ Test the create bib response method
 ...    <subfield code="a">OCWMS</subfield>
 ...  </datafield>
 ... </record>"""
->>> report = OclcReport(logger=logger)
+>>> report = OclcReport()
 >>> report.create_bib_response(response_rec)
 True

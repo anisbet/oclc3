@@ -23,14 +23,13 @@ import requests
 import json
 from os.path import dirname, join, exists
 import sys
-from clog import Logger
 
 TOKEN_CACHE = '_auth_.json'
 
 class OclcService:
 
     # Reads the yaml file for necessary configs.
-    def __init__(self, configs:dict, logger:Logger=None, debug:bool=False):
+    def __init__(self, configs:dict, debug:bool=False):
         
         self.configs     = configs
         self.client_id   = configs['service']['clientId']
@@ -39,7 +38,6 @@ class OclcService:
         self.principal_id= configs['service']['principalId']
         self.inst_symbol = configs['service']['institutionalSymbol']
         self.branch      = configs['service']['branchName']
-        self.logger      = logger
         self.debug       = debug
         if len(self.client_id) > 0 and len(self.secret) > 0:
             self.auth_json = self._authenticate_worldcat_metadata_()
@@ -61,12 +59,7 @@ class OclcService:
     # param: message:str message to either log or print. 
     # param: to_stderr:bool if True and logger  
     def print_or_log(self, message:str, to_stderr:bool=False):
-        if self.logger:
-            if to_stderr:
-                self.logger.logit(message, level='error', include_timestamp=True)
-            else:
-                self.logger.logit(message)
-        elif to_stderr:
+        if to_stderr:
             sys.stderr.write(f"{message}" + linesep)
         else:
             print(f"{message}")
