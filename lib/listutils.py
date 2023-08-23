@@ -225,14 +225,16 @@ class Lister:
     # a merged list. If duplicate numbers have the different instructions
     # the instruction character is replaced with a space ' ' character. 
     # If there are duplicate numbers and they are both '+' or '-', the 
-    # duplicate is removed. 
-    # Order of precidence: 
-    #   * '!' trumps all other actions. 
-    #   * when 2 values match, if their signs conflict they cancel to ' '. 
-    #   * when 2 values match, any other action trumps ' '. 
-    # param: list1:list of either adds, deletes, or even a mixture of both or ' '.
-    # param: list2:list of either adds, deletes, or even a mixture of both or ' '.
-    # return: list of instructions deduped with conflicting instructions set to ' '.
+    # duplicate is removed, and actions are reconciled by the following
+    # algorithm: 
+    # 1) '!' trumps all other rules. 
+    # 2) '?' trumps any lower rule.
+    # 3) Conflicting add ('+') and delete ('-') actions equates to an inaction ' ', do nothing.
+    # 4) Any action ('+','-','!', or '?') over rules inaction ' '. 
+    #  
+    # param: list1:list of any set of oclc numbers with arbitrary instructions.
+    # param: list2:list of any set of oclc numbers with arbitrary instructions.
+    # return: list of instructions deduped with conflicting recociled as specified above.
     def merge(self, list1:list, list2:list) ->list:
         merged_dict = {}
         merged_list = []
@@ -247,11 +249,11 @@ class Lister:
                 if stored_sign:
                     if stored_sign == '!':
                         continue
+                    elif stored_sign == '?' or sign == '?':
+                        merged_dict[key] = '?'
                     elif (stored_sign == '+' and sign == '-') or (stored_sign == '-' and sign == '+'):
                         merged_dict[key] = ' '
-                    elif stored_sign == ' ':
-                        merged_dict[key] = sign
-                    else: # '+', '?', '-'
+                    else:
                         merged_dict[key] = sign
                 else:
                     merged_dict[key] = sign

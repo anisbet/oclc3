@@ -110,6 +110,14 @@ Test that instructions to add or delete are overridden by done list
 >>> l2 = ['!1','!2', '+3', '?4']
 >>> list_reader.merge(l1,l2)
 ['!1', '!2', '!3', '?4']
+>>> l2 = ['+1','-2', '!3', ' 4']
+>>> l1 = ['!1','!2', '+3', '?4']
+>>> list_reader.merge(l1,l2)
+['!1', '!2', '!3', '?4']
+>>> l2 = ['+1','-2', '!3', ' 4']
+>>> l1 = ['+5','-6', '!7', '?8']
+>>> list_reader.merge(l1,l2)
+['+1', '-2', '!3', ' 4', '+5', '-6', '!7', '?8']
 
 Test that we can write instructions to file and read them again.
 >>> list_reader = Lister('../test_data/test_instructions.lst')
