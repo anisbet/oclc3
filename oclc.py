@@ -24,19 +24,11 @@ import yaml
 import argparse
 from lib.oclcws import OclcService
 from lib.oclcreport import OclcReport
-from lib.flat import Flat
 from log import Logger
 from lib.listutils import Lister, InstructionManager
-from lib.flat2marcxml import MarcXML
+# from lib.flat import Flat
+# from lib.flat2marcxml import MarcXML
 
-#######test#########
-# Use this so outputs match doctest expectations.
-# TEST = True
-#######test#########
-#######prod#########
-# Use this for Sandbox or Production. 
-TEST = False
-#######prod#########
 VERSION='3.00.00_a'
 
 # Loads the yaml file for configs.
@@ -77,34 +69,34 @@ def print_tally(action:str, tally:dict, logger:Logger, remaining:int=0):
 # Creates an institutional-specific bib record. 
 # param: list of records as lists of FLAT strings, where FLAT refers to 
 #  SirsiDynix's Symphony FLAT record format.
-def upload_bib_record(
-  flat_records:list, 
-  configs:dict, 
-  logger:Logger, 
-  debug:bool=False):
-    if not flat_records:
-        print_tally('bib upload', {}, logger)
-        return
-    # TODO: This request throws an error on the test sandbox. I have submitted a query
-    # to OCLC to determine why, but have not heard back yet. April 06, 2023.
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    left_over_record_count = 0
-    for flat_record in flat_records:
-        xml_record = MarcXML(flat_record)
-        if debug:
-            print(f"DEBUG HERE xml: {xml_record}")
-        response = ws.create_intitution_level_bib_record(xml_record.as_bytes(), debug=debug)
-        # response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
-        if debug:
-            print(f"DEBUG HERE response: {response}")
-        if not report.create_bib_response(response, debug=debug):
-            left_over_record_count = len(flat_records)
-            msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
-            logger.logit(msg, level='error', include_timestamp=True)
-            break
-    r_dict = report.get_bib_load_results()
-    print_tally('bib upload', r_dict, logger)
+# def upload_bib_record(
+#   flat_records:list, 
+#   configs:dict, 
+#   logger:Logger, 
+#   debug:bool=False):
+#     if not flat_records:
+#         print_tally('bib upload', {}, logger)
+#         return
+#     # TODO: This request throws an error on the test sandbox. I have submitted a query
+#     # to OCLC to determine why, but have not heard back yet. April 06, 2023.
+#     ws = OclcService(configs, logger=logger, debug=debug)
+#     report = OclcReport(logger=logger, debug=debug)
+#     left_over_record_count = 0
+#     for flat_record in flat_records:
+#         xml_record = MarcXML(flat_record)
+#         if debug:
+#             print(f"DEBUG HERE xml: {xml_record}")
+#         response = ws.create_intitution_level_bib_record(xml_record.as_bytes(), debug=debug)
+#         # response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
+#         if debug:
+#             print(f"DEBUG HERE response: {response}")
+#         if not report.create_bib_response(response, debug=debug):
+#             left_over_record_count = len(flat_records)
+#             msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
+#             logger.logit(msg, level='error', include_timestamp=True)
+#             break
+#     r_dict = report.get_bib_load_results()
+#     print_tally('bib upload', r_dict, logger)
 
 # Adds or sets the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -210,15 +202,56 @@ def delete_holdings(
 
 # Main entry to the application if not testing.
 def main(argv):
+    
+#     hints_msg = '''
+#     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
+#     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
+#     field of the record(s) in a flat file. In that case the first sub-field 'a' is assumed to be the OCLC number.
 
+#     CSV (or TSV) files are assumed to be OCLC holding reports converted from XSLX (see Readme.md for instructions).
+#     Currently these reports start with '=HYPERLINK...' and the OCLC number is extracted from the alt text of the
+#     first field.
+
+#     All other file formats are assumed to contain OCLC numbers somewhere on each line and the first number match
+#     is assumed to be the OCLC number. See Readme.md for more information and limitations.
+
+#     Supported list files are 
+#       * '.flat'
+#       * '.lst'
+#       * '.txt'
+#       * '.csv/.tsv'
+#     The last two are the formats that OCLC uses in their holdings reports.
+
+#     You may supply an --add and/or --delete file. In any case duplicate requests are removed, and conflicting
+#     requests are neutralized. For example, requesting '1111111' in an --add and --delete list will output an
+#     instruction of ' 1111111', which will not be submitted to OCLC since it would count against quotas.
+
+#     YAML Files
+#     ----------
+# # Test YAML
+# author:          'Andrew Nisbet'
+# service: 
+#   name:          'WCMetaDataTest'
+#   clientId:      '[supplied by OCLC]'
+#   secret:        '[supplied by OCLC]'
+#   registryId:    '[supplied by OCLC]'
+#   principalId:   '[supplied by OCLC]'
+#   principalIdns: 'urn:oclc:wms:da'
+#   institutionalSymbol: 'OCPSB'
+#   branchName:    'MAIN'
+# ignoreTags: 
+#   '250': 'Expected release'
+# hitsQuota:       100
+# dataDir:         'data'
+#     '''
     parser = argparse.ArgumentParser(
         prog = 'oclc',
         usage='%(prog)s [options]' ,
-        description='Maintains holdings in OCLC WorldCat database.',
-        epilog='See "--hints" for help more information.'
-    )
-    
-    hints_msg = """
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='''\
+            Maintains holdings in OCLC WorldCat database.
+            ''',
+        epilog='''\
     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
     field of the record(s) in a flat file. In that case the first sub-field 'a' is assumed to be the OCLC number.
@@ -257,17 +290,17 @@ service:
 ignoreTags: 
   '250': 'Expected release'
 hitsQuota:       100
-dataDir:         'data'
-    """
+dataDir:         'data'           
+        '''
+    )
     parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
     parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
     parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
     parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
     parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
-    parser.add_argument('--hints', help=f"{hints_msg}")
     parser.add_argument('--instructions', action='store', default='instructions.lst', metavar='[/foo/instructions.lst]', help='OCLC update instructions file name.')
     parser.add_argument('--log', action='store', default='oclc.log', metavar='[/foo/oclc_YYYY-MM-DD.log]', help=f"Log file.")
-    parser.add_argument('--run', action='store', default='instructions.lst', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
+    parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-y', '--yaml', action='store', default='test.yaml', metavar='[/foo/prod.yaml]', help='alternate YAML file for testing. Default to "test.yaml"')
     args = parser.parse_args()
@@ -303,7 +336,10 @@ dataDir:         'data'
 
     # Upload XML MARC21 records.
     # if args.xml_records:
-    #     # TODO: Waiting for OCLC to respond with answers to why the XML throws an error. 
+    #     # TODO: Waiting for OCLC to respond with answers to why the XML throws an error.
+    #     # TODO: Move to different class that works with the flat file to create xml for 
+    #     # TODO: records that don't have OCLC numbers, and to create a slim file for updating ILS
+    #     # TODO: records.  
     #     print(f"currently not supported.")
     #     pass
     
@@ -330,59 +366,52 @@ dataDir:         'data'
 
     if args.done:
         lister = Lister(args.done, debug=args.debug)
-        check_holdings_lst = lister.get_list('!')
+        done_lst = lister.get_list('!')
 
     # Merge any and all lists.  
     instruction_manager = InstructionManager(args.instructions, debug=args.debug)
-    instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst)
-    instruction_list = instruction_manager.merge(instruction_list, check_holdings_lst)
-    instruction_list = instruction_manager.merge(instruction_list, done_lst)
+    instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
     # Output the instructions list. 
     instruction_manager.write_instructions(instruction_list)
      
     if args.run:
-        # TODO: if args.run exists, load it as an instruction list. Load instruction list. 
-        # TODO: Output update list 
-        pass
-    # Call the web service with the appropriate list, and capture results.
-    # try:
-    #     if args.update:
-    #         if args.update_instructions:
-    #             set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst = read_master(args.update_instructions, debug=args.debug)
-    #             if args.debug:
-    #                 sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
-    #             if check_holdings_lst:
-    #                 check_holdings_lst = get_quota(check_holdings_lst, 'checkQuota', configs)
-    #                 done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-    #                 done_lst.extend(done)
-    #             if unset_holdings_lst:
-    #                 unset_holdings_lst = get_quota(unset_holdings_lst, 'deleteQuota', configs)
-    #                 done = delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-    #                 done_lst.extend(done)
-    #             if set_holdings_lst:
-    #                 set_holdings_lst = get_quota(set_holdings_lst, 'addQuota', configs)
-    #                 done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-    #                 done_lst.extend(done)
-    #             write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
-    #             if flat_manager:
-    #                 my_updated_numbers = parse_log_for_updated_numbers(logger, debug=args.debug)
-    #                 if my_updated_numbers:
-    #                     flat_manager.update_and_write_slim_flat(my_updated_numbers)
-    #                 else:
-    #                     logger.logit(f"No slim file will be produced because no update numbers found in {logger.get_log_file()}\n")
-    #         else:
-    #             sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
-    #     logger.logit('done', include_timestamp=True)
-    # except KeyboardInterrupt:
-    #     write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
-    #     logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
-    #     logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
+        # Load instruction list specified by args.run. 
+        instruction_manager = InstructionManager(args.run, debug=args.debug)
+        set_holdings_lst    = instruction_manager.read_instruction_numbers('+')
+        unset_holdings_lst  = instruction_manager.read_instruction_numbers('-')
+        check_holdings_lst  = instruction_manager.read_instruction_numbers('?')
+        done_lst            = instruction_manager.read_instruction_numbers('!')
+        
+        # Call the web service with the appropriate list, and capture results.
+        try:
+            if args.debug:
+                sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
+            if check_holdings_lst:
+                check_holdings_lst = check_holdings_lst[0:int(hits_quota)]
+                done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(done)
+            if unset_holdings_lst:
+                unset_holdings_lst = unset_holdings_lst[0:int(hits_quota)]
+                done = delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(done)
+            if set_holdings_lst:
+                set_holdings_lst = set_holdings_lst[0:int(hits_quota)]
+                done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(done)
+            # Write out the lists
+            instruction_manager = InstructionManager(args.run + '.ran', debug=args.debug)
+            ran_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+            # Output the completed instructions list. Note this won't include numbers beyond quotas.
+            instruction_manager.write_instructions(ran_list)
+            logger.logit('done', include_timestamp=True)
+        except KeyboardInterrupt:
+            instruction_manager = InstructionManager(args.run + '.interrupted', debug=args.debug)
+            ran_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+            # Output the state of the lists as they were at the time of the interrupt.
+            instruction_manager.write_instructions(ran_list)
+            logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
+            logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
 
 if __name__ == "__main__":
-    if TEST:
-        import doctest
-        doctest.testmod()
-        doctest.testfile("oclc.tst")
-    else:
-        main(sys.argv[1:])
+    main(sys.argv[1:])
 # EOF

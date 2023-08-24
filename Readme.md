@@ -217,7 +217,7 @@ selitem \
 -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" \ 
 -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" \ 
 -oC 2>/dev/null | sort | uniq >oclc_catkeys.lst 
-cat oclc_catkeys.lst | catalogdump -oF >all_records.flat
+cat oclc_catkeys.lst | catalogdump -oF -kf >all_records.flat
 # The oclc.py can read flat files.
 ```
 
@@ -234,7 +234,8 @@ cat oclc_catalog_selection.lst | sort | uniq >oclc_catalog_selection.uniq.lst
 # Output the flat records as a flat file.
 # If the records don't wrap, pipe it to flatskip -if -aMARC -om >mixed.flat
 # -oF outputs the flat record without linewrapping.
-cat oclc_catalog_selection.uniq.lst | catalogdump -oF >oclc_submission.flat
+# -kf outputs the flexkey TCN in the 001 for matching.
+cat oclc_catalog_selection.uniq.lst | catalogdump -oF -kf >oclc_submission.flat
 ```
 # Updating the Library's Catalog Records
 The `oclc.py` will use information in oclc's responses to create a slim-flat file for overlaying updated OCoLC numbers in the `035` tag. The slim-flat file can then be used with Symphony's `catalogmerge` API command to update the ILS.
@@ -266,7 +267,7 @@ Once done we can use `catalogmerge` to update the bib record with the data from 
 # -d delete all existing occurrences of entries being merged.
 # -f is followed by a list of options specifying how to use the flexible key.
 #    g use the local number as is (001). *TCN*
-# -r reorder record according to format.
+# -r reorder record according to format. Don't reorder. It messes with diffing results.
 # -l Use the format to determine the tags to be merged. If the tag is
 #      marked as non-repeatable, do not merge if the Symphony record contains
 #      the tag. If the tag is non-repeatable, and the Symphony record does not

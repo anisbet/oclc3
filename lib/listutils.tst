@@ -175,3 +175,8 @@ Test multiple list merging
 >>> master = instructor.merge(master, n)
 >>> master
 ['+1', ' 2', '?3', '!4', '!5', ' 6']
+
+Test with all the lists.
+master = instructor.merge(a, d, c, f, n)
+>>> master
+['+1', ' 2', '?3', '!4', '!5', ' 6']

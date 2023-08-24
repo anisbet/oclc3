@@ -48,7 +48,7 @@ class SimpleListFile:
     # Reads and parses the input file returning a list of a given 'type'.
     # Valid types are 'add' and 'del' list. The list is returned with the
     # appropriate instruction prefix '+' for adds and '-' for deletes. 
-    def _parse_(self, which:str=' ') -> list:
+    def _parse_(self, which:str) -> list:
         # In the most basic parser type read a file of integers one per line.
         numbers = []
         num_matcher  = re.compile(r'\d+')
@@ -227,12 +227,11 @@ class Lister:
     # return: True if the lister read a flat file, and false otherwise.  
     def is_flat_file(self) ->bool:
         return self.flat
+
 class InstructionManager:
     def __init__(self, fileName:str, debug:bool=False) -> dict:
         self.instruction_file = fileName
         self.debug = debug
-        if self.debug:
-            print(f"DEBUG: reading {self.instruction_file}")
 
     # Compares two lists with '+', ' ', or '-' instructions and returns
     # a merged list. If duplicate numbers have the different instructions
@@ -248,10 +247,10 @@ class InstructionManager:
     # param: list1:list of any set of oclc numbers with arbitrary instructions.
     # param: list2:list of any set of oclc numbers with arbitrary instructions.
     # return: list of instructions deduped with conflicting recociled as specified above.
-    def merge(self, list1:list, list2:list) ->list:
+    def merge(self, *lists:list) ->list:
         merged_dict = {}
         merged_list = []
-        for l in [list1, list2]:
+        for l in lists:
             for num in l:
                 key = num[1:]
                 sign= num[0]
@@ -262,7 +261,7 @@ class InstructionManager:
                 if stored_sign:
                     if stored_sign == '!':
                         continue
-                    elif stored_sign == '?' or sign == '?':
+                    if stored_sign == '?' or sign == '?':
                         merged_dict[key] = '?'
                     elif (stored_sign == '+' and sign == '-') or (stored_sign == '-' and sign == '+'):
                         merged_dict[key] = ' '
@@ -281,6 +280,8 @@ class InstructionManager:
         with open(self.instruction_file, encoding='ISO-8859-1', mode='w') as f:
             for instruction in instructions:
                 f.write(f"{instruction}" + linesep)
+        if self.debug:
+            print(f"DEBUG: finished writing instructions to '{self.instruction_file}'")
 
     # Reads instruction file. Instruction files are a series of numbers
     # one-per-line that start with '+', ' ', or '-' followed by an integer
@@ -293,6 +294,8 @@ class InstructionManager:
             for line in f:
                 if line and line.startswith(action):
                     numbers.append(line.rstrip()[1:])
+        if self.debug:
+            print(f"DEBUG: finished reading instructions from '{self.instruction_file}'")
         return numbers
 
 if __name__ == "__main__":
