@@ -29,7 +29,7 @@ from lib.listutils import Lister, InstructionManager
 # from lib.flat import Flat
 # from lib.flat2marcxml import MarcXML
 
-VERSION='3.00.00_b'
+VERSION='3.00.00'
 
 # Loads the yaml file for configs.
 # param: path of the yaml file. 
@@ -389,7 +389,8 @@ dataDir:         'data'
         set_holdings_lst    = instruction_manager.read_instruction_numbers('+')
         unset_holdings_lst  = instruction_manager.read_instruction_numbers('-')
         check_holdings_lst  = instruction_manager.read_instruction_numbers('?')
-        done_lst            = instruction_manager.read_instruction_numbers('!')
+        # If there are done items in the file, mark them done for when we write to '.completed'.
+        done_lst            = list('!' + num for num in instruction_manager.read_instruction_numbers('!'))
         
         # Call the web service with the appropriate list, and capture results.
         try:
@@ -409,15 +410,20 @@ dataDir:         'data'
                 done_lst.extend(list('!' + num for num in done))
             # Write out the lists
             instruction_manager = InstructionManager(args.run + '.completed', debug=args.debug)
-            ran_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+            completed_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
             # Output the completed instructions list. Note this won't include numbers beyond quotas.
-            instruction_manager.write_instructions(ran_list)
+            instruction_manager.write_instructions(completed_list)
             logger.logit('done', include_timestamp=True)
         except KeyboardInterrupt:
             instruction_manager = InstructionManager(args.run + '.interrupted', debug=args.debug)
-            ran_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+            # Save the instructions that haven't been done yet.
+            set_holdings_lst   = list('+' + num for num in set_holdings_lst)
+            unset_holdings_lst = list('-' + num for num in unset_holdings_lst)
+            check_holdings_lst = list('?' + num for num in check_holdings_lst)
+            # Don't add another action character to the done_lst
+            complete_incomplete_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
             # Output the state of the lists as they were at the time of the interrupt.
-            instruction_manager.write_instructions(ran_list)
+            instruction_manager.write_instructions(complete_incomplete_list)
             logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
             logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
 
