@@ -29,7 +29,7 @@ from lib.listutils import Lister, InstructionManager
 # from lib.flat import Flat
 # from lib.flat2marcxml import MarcXML
 
-VERSION='3.00.00'
+VERSION='3.00.01'
 
 # Loads the yaml file for configs.
 # param: path of the yaml file. 
@@ -307,7 +307,7 @@ dataDir:         'data'
     parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
     parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
     parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
-    parser.add_argument('--instructions', action='store', default='instructions.lst', metavar='[/foo/instructions.lst]', help='OCLC update instructions file name.')
+    parser.add_argument('--instructions', action='store', metavar='[/foo/instructions.lst]', help='OCLC update instructions file name.')
     parser.add_argument('--log', action='store', default='oclc.log', metavar='[/foo/oclc_YYYY-MM-DD.log]', help=f"Log file.")
     parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
@@ -377,13 +377,13 @@ dataDir:         'data'
         lister = Lister(args.done, debug=args.debug)
         done_lst = lister.get_list('!')
 
-    # Merge any and all lists.  
-    instruction_manager = InstructionManager(args.instructions, debug=args.debug)
-    instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
-    # Output the instructions list. 
-    instruction_manager.write_instructions(instruction_list)
-     
-    if args.run:
+    if args.instructions:
+        # Merge any and all lists and write out instructions.
+        instruction_manager = InstructionManager(args.instructions, debug=args.debug)
+        instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+        # Output the instructions list. 
+        instruction_manager.write_instructions(instruction_list)
+    elif args.run:
         # Load instruction list specified by args.run. 
         instruction_manager = InstructionManager(args.run, debug=args.debug)
         set_holdings_lst    = instruction_manager.read_instruction_numbers('+')
@@ -426,7 +426,9 @@ dataDir:         'data'
             instruction_manager.write_instructions(complete_incomplete_list)
             logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
             logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
-
+    else:
+        logger.logit(f"Warning, nothing to do. Either use --instructions or --run. See --help for more information.")
+        
 if __name__ == "__main__":
     main(sys.argv[1:])
 # EOF
