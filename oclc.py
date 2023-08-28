@@ -79,8 +79,8 @@ def print_tally(action:str, tally:dict, logger:Logger, remaining:int=0):
 #         return
 #     # TODO: This request throws an error on the test sandbox. I have submitted a query
 #     # to OCLC to determine why, but have not heard back yet. April 06, 2023.
-#     ws = OclcService(configs, logger=logger, debug=debug)
-#     report = OclcReport(logger=logger, debug=debug)
+#     ws = OclcService(configs, debug=debug)
+#     report = OclcReport(debug=debug)
 #     left_over_record_count = 0
 #     for flat_record in flat_records:
 #         xml_record = MarcXML(flat_record)
@@ -114,8 +114,8 @@ def add_holdings(
         print_tally('add / set', {}, logger)
         return
     # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
+    ws = OclcService(configs, debug=debug)
+    report = OclcReport(debug=debug)
     done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.set_institution_holdings(oclc_numbers)
@@ -123,7 +123,10 @@ def add_holdings(
         last_oclc_number = ''
         if done:
             last_oclc_number = done[-1]
-        if not report.set_response(code=status_code, json_data=content, debug=debug):
+        went_okay, messages = report.set_response(code=status_code, json_data=content, debug=debug)
+        if went_okay:
+            logger.logem(messages)
+        else:
             msg = f"The web service stopped while setting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
@@ -148,8 +151,8 @@ def check_institutional_holdings(
         print_tally('check', {}, logger)
         return
     # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
+    ws = OclcService(configs, debug=debug)
+    report = OclcReport(debug=debug)
     done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.check_institution_holdings(oclc_numbers, debug=debug)
@@ -157,7 +160,10 @@ def check_institutional_holdings(
         last_oclc_number = ''
         if done:
             last_oclc_number = done[-1]
-        if not report.check_holdings_response(code=status_code, json_data=content, debug=debug):
+        went_okay, messages = report.check_holdings_response(code=status_code, json_data=content, debug=debug)
+        if went_okay:
+            logger.logem(messages)
+        else:
             msg = f"The web service stopped while checking numbers:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
@@ -182,8 +188,8 @@ def delete_holdings(
         print_tally('delete / unset', {}, logger)
         return
     # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
+    ws = OclcService(configs, debug=debug)
+    report = OclcReport(debug=debug)
     done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.unset_institution_holdings(oclc_numbers, debug=debug)
@@ -191,7 +197,10 @@ def delete_holdings(
         last_oclc_number = ''
         if done:
             last_oclc_number = done[-1]
-        if not report.delete_response(code=status_code, json_data=content, debug=debug):
+        went_okay, messages = report.delete_response(code=status_code, json_data=content, debug=debug)
+        if went_okay:
+            logger.logem(messages)
+        else:
             msg = f"The web service stopped while deleting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
@@ -389,15 +398,15 @@ dataDir:         'data'
             if check_holdings_lst:
                 check_holdings_lst = check_holdings_lst[0:int(hits_quota)]
                 done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                done_lst.extend(done)
+                done_lst.extend(list('!' + num for num in done))
             if unset_holdings_lst:
                 unset_holdings_lst = unset_holdings_lst[0:int(hits_quota)]
                 done = delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                done_lst.extend(done)
+                done_lst.extend(list('!' + num for num in done))
             if set_holdings_lst:
                 set_holdings_lst = set_holdings_lst[0:int(hits_quota)]
                 done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                done_lst.extend(done)
+                done_lst.extend(list('!' + num for num in done))
             # Write out the lists
             instruction_manager = InstructionManager(args.run + '.ran', debug=args.debug)
             ran_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)

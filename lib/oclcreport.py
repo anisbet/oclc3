@@ -78,7 +78,7 @@ class OclcReport:
     def check_holdings_response(self, 
       code:int,
       json_data:dict, 
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         if code < 200 or code > 207:
             msg = ''
@@ -129,8 +129,8 @@ class OclcReport:
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
-        self.print_or_log(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Interprets the JSON response from the 
     # worldcat.org/bib/checkcontrolnumbers request. 
@@ -144,7 +144,7 @@ class OclcReport:
     def check_response(self, 
       code:int,
       json_data:dict, 
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         if code < 200 or code > 207:
             msg = ''
@@ -195,14 +195,14 @@ class OclcReport:
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
-        self.print_or_log(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Parses the response from the OCLC set holdings request.
     def set_response(self, 
       code:int, 
       json_data:dict,
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         if code < 200 or code > 207:
             msg = ''
@@ -249,14 +249,14 @@ class OclcReport:
                 self.adds['errors'] += 1
                 results.append(msg)
                 b_result = False
-        self.print_or_log(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Checks the results of the delete transaction.
     def delete_response(self, 
       code:int, 
       json_data:dict,
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         # Check the HTTP code. Should be 207 but will accept 200 to 207
         if code < 200 or code > 207:
@@ -306,8 +306,8 @@ class OclcReport:
                 self.dels['errors'] += 1
                 results.append(msg)
                 b_result = False
-        self.print_or_log(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Parses an expected (XML) web service result.  
     def create_bib_response(self, response, debug:bool=False):

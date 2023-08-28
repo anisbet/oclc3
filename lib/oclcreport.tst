@@ -91,10 +91,7 @@ Tests for web service responses, but also provides reporting.
 ... }""")
 >>> report = OclcReport()
 >>> report.check_response(200, check_response)
-?12345  Record confirmed
-?67890  updated to 6777790
-?999999999  Record not found.
-True
+(True, ['?12345  Record confirmed', '?67890  updated to 6777790', '?999999999  Record not found.'])
 
 
 Test failed condition on set
@@ -111,11 +108,7 @@ Test the delete response
 >>> delete_response = check_response
 >>> report = OclcReport()
 >>> report.delete_response(207, delete_response)
--12345  deleted
--67890  updated to 6777790, Record found.
--999999999  deleted
-True
-
+(True, ['-12345  deleted', '-67890  updated to 6777790, Record found.', '-999999999  deleted'])
 >>> delete_response = ''
 >>> report.delete_response(404, delete_response)
 False
