@@ -29,7 +29,7 @@ from lib.listutils import Lister, InstructionManager
 # from lib.flat import Flat
 # from lib.flat2marcxml import MarcXML
 
-VERSION='3.00.00_a'
+VERSION='3.00.00_b'
 
 # Loads the yaml file for configs.
 # param: path of the yaml file. 
@@ -408,7 +408,7 @@ dataDir:         'data'
                 done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
                 done_lst.extend(list('!' + num for num in done))
             # Write out the lists
-            instruction_manager = InstructionManager(args.run + '.ran', debug=args.debug)
+            instruction_manager = InstructionManager(args.run + '.completed', debug=args.debug)
             ran_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
             # Output the completed instructions list. Note this won't include numbers beyond quotas.
             instruction_manager.write_instructions(ran_list)
