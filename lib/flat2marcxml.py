@@ -172,5 +172,5 @@ class MarcXML:
 
 if __name__ == "__main__":
     import doctest
-    doctest.testfile("marcxml.tst")
+    doctest.testfile("flat2marcxml.tst")
 # EOF

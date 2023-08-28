@@ -21,7 +21,7 @@ import json
 from os.path import dirname, join, exists
 from datetime import datetime
 import re
-from log import Log
+import sys
 
 DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 
@@ -35,14 +35,32 @@ DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
 # * Adds and delete counts shall be reported along with any errors.
 class OclcReport:
 
-    def __init__(self, logger:Log, debug:bool=False):
+    def __init__(self, debug:bool=False):
         self.debug = debug
         self.checks   = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.holdings = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.adds     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.dels     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.bibs     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
-        self.logger   = logger
+
+    # Wrapper for the logger. Added after the class was written
+    # and to avoid changing tests. 
+    # param: message:str message to either log or print. 
+    # param: to_stderr:bool if True and logger  
+    def print_or_log(self, message, to_stderr:bool=False):
+        if isinstance(message, list):
+            if to_stderr:
+                for m in message:
+                    sys.stderr.write(f"{m}\n")
+            else:
+                for m in message:
+                    print(f"{m}")
+        else:
+            if to_stderr:
+                sys.stderr.write(f"{message}\n")
+            else:
+                print(f"{message}")
+
 
     # {'title': '46629055', 
     #  'content': 
@@ -60,7 +78,7 @@ class OclcReport:
     def check_holdings_response(self, 
       code:int,
       json_data:dict, 
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         if code < 200 or code > 207:
             msg = ''
@@ -72,7 +90,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"check failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.holdings['errors'] += 1
             return False
         b_result= True
@@ -107,12 +125,12 @@ class OclcReport:
                 except KeyError as fx:
                     reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
-        self.logger.logem(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Interprets the JSON response from the 
     # worldcat.org/bib/checkcontrolnumbers request. 
@@ -126,7 +144,7 @@ class OclcReport:
     def check_response(self, 
       code:int,
       json_data:dict, 
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         if code < 200 or code > 207:
             msg = ''
@@ -138,7 +156,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"check failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.checks['errors'] += 1
             return False
         b_result= True
@@ -173,18 +191,18 @@ class OclcReport:
                 except KeyError as fx:
                     reported_error = f"JSON: {json_data}"
                 msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 results.append(msg)
                 # There was a problem with the web service so stop processing.
                 b_result = False
-        self.logger.logem(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Parses the response from the OCLC set holdings request.
     def set_response(self, 
       code:int, 
       json_data:dict,
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         if code < 200 or code > 207:
             msg = ''
@@ -196,7 +214,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"set failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.adds['errors'] += 1
             return False
         b_result= True
@@ -227,18 +245,18 @@ class OclcReport:
                 except KeyError as ex:
                     reported_error = f"JSON: {json_data}"
                 msg = f"set response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 self.adds['errors'] += 1
                 results.append(msg)
                 b_result = False
-        self.logger.logem(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Checks the results of the delete transaction.
     def delete_response(self, 
       code:int, 
       json_data:dict,
-      debug:bool=False) ->bool:
+      debug:bool=False):
         results = []
         # Check the HTTP code. Should be 207 but will accept 200 to 207
         if code < 200 or code > 207:
@@ -251,7 +269,7 @@ class OclcReport:
             except ValueError:
                 reported_error = f"JSON: was empty!"
                 msg = f"delete failed!"
-            self.logger.logit(msg, 'error')
+            self.print_or_log(msg, 'error')
             self.dels['errors'] += 1
             return False
         # Otherwise carry on parsing results.
@@ -284,12 +302,12 @@ class OclcReport:
                 except KeyError as ex:
                     reported_error = f"JSON: {json_data}"
                 msg = f"delete response failed on {ex} attribute.\n{reported_error}\n"
-                self.logger.logit(msg, 'error')
+                self.print_or_log(msg, 'error')
                 self.dels['errors'] += 1
                 results.append(msg)
                 b_result = False
-        self.logger.logem(results)
-        return b_result
+        # self.print_or_log(results)
+        return b_result, results
 
     # Parses an expected (XML) web service result.  
     def create_bib_response(self, response, debug:bool=False):

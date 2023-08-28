@@ -66,60 +66,15 @@ service:
   principalId:   'a_long_hash_string_identifier' # Provided but not used.
   principalIdns: 'urn:oclc:wms:da' # Provided but not used.
   institutionalSymbol: 'OCPSB' # Test institutional symbol supplied by OCLC.
-report: 'oclc.log'
-checkQuota: 500000   # Optional
-deleteQuota: 500000  # Optional
-addQuota: 5000000    # Optional
-
-# Configurations for the database.
-database:
-  name: 'oclc.db'
-  path: '..'   # Location of the database file relative to the 'lib/' directory.
-  add_table_name: 'added' # Table name
-  del_table_name: 'deleted' # Table name - can be (almost) anything you like.
+ignoreTags: 
+  '250': 'Expected release'
+hitsQuota:       100
+dataDir:         'data'
 ```
 Once set up the script can be run from the command line as follows.
 ## Help
 ```bash
-python oclc.py --help
-usage: oclc [options]
 
-Maintains holdings in OCLC WorldCat database.
-
-options:
-  -h, --help            show this help message and exit
-  --version             show program's version number and exit
-  -c [/foo/check.lst], --check [/foo/check.lst]
-                        Check if the OCLC numbers in the list are valid.
-  -d, --debug           turn on debugging.
-  -f [/foo/bibs.flat], --flat [/foo/bibs.flat]
-                        Use a flat file of the bib records collected from the library's ILS instead of going to the trouble of making a '--local' file list. Once the process
-                        runs, this flat file will be modified and converted into a slim flat file ready for use by Symphony's 'catalogmerge' API command. Only records that
-                        require updated OCLC numbers will be output. The records that require updating will contain all document headers, a 001 flexkey as matchpoint, and ALL 035
-                        tags. The OCLC 035 tags will be modified to include new OCLC numbers in the 'a' field and the old OCLC number in the 'z' sub-field. You cannot use '--
-                        local' and '--flat'.
-  -i {"tag_num": "tag text"}, --ignore {"tag_num": "tag text"}
-                        Ignore bib records that have a given tag that contains a specific value.
-  -l [/foo/local.lst], --local [/foo/local.lst]
-                        Local OCLC numbers list collected from the library's ILS.
-  -r [/foo/remote.lst], --remote [/foo/remote.lst]
-                        Remote (OCLC) numbers list from WorldCat holdings report.
-  -s [/foo/bar.txt], --set [/foo/bar.txt]
-                        OCLC numbers to add or set in WorldCat.
-  -u [/foo/bar.txt], --unset [/foo/bar.txt]
-                        OCLC numbers to delete from WorldCat.
-  --update              Actually do the work set out in the --update_instructions file.
-  --update_instructions UPDATE_INSTRUCTIONS
-                        File that contains instructions to update WorldCat.
-  --whats_left          Computes the what is left to do in the master list based on what is in the receipt file. The master list is defined by the '--update_instructions' flag,
-                        while the receipt file is always named 'receipt.txt'. If the web service times out or you exceed quotas, you can use this to compare the two files and
-                        create a new master list. By default the master list is over-written with the remaining instructions, including any edits to the master list since the
-                        receipt was created. That is, if the script created a receipt with '-11111111' as deleted, but the master list was later changed to '?11111111', the new
-                        check instruction is preserved and written to the master list. python oclc.py --whats_left --update_instructions=master.lst
-  -x XML_RECORDS, --xml_records XML_RECORDS
-                        file of MARC21 XML catalog records to submit as special local holdings.
-  -y [/foo/test.yaml], --yaml [/foo/test.yaml]
-                        alternate YAML file for testing.
 ```
 ### Add / Set OCLC numbers
 See [the add documentation](#regular-worldcat-maintenance) for more information.
@@ -256,16 +211,14 @@ Random text on a line   # Ignored.
    3)  Adds
 
 ## Library Records
-**TODO include instructions on how to add 'ignore' tags.**
 The Sympony API to collect data for submission to OCLC is listed below.
 ```bash
 selitem \ 
 -t"~PAPERBACK,JPAPERBACK,BKCLUBKIT,COMIC,DAISYRD,EQUIPMENT,E-RESOURCE,FLICKSTOGO,FLICKTUNE,JFLICKTUNE,JTUNESTOGO,PAMPHLET,RFIDSCANNR,TUNESTOGO,JFLICKTOGO,PROGRAMKIT,LAPTOP,BESTSELLER,JBESTSELLR" \ 
 -l"~BARCGRAVE,CANC_ORDER,DISCARD,EPLACQ,EPLBINDERY,EPLCATALOG,EPLILL,INCOMPLETE,LONGOVRDUE,LOST,LOST-ASSUM,LOST-CLAIM,LOST-PAID,MISSING,NON-ORDER,BINDERY,CATALOGING,COMICBOOK,INTERNET,PAMPHLET,DAMAGE,UNKNOWN,REF-ORDER,BESTSELLER,JBESTSELLR,STOLEN" \ 
 -oC 2>/dev/null | sort | uniq >oclc_catkeys.lst 
-cat oclc_catkeys.lst | catalogdump -oF >all_records.flat
-# Use oclc.py's --flat switch to read the flat file instead 
-# of a just a list of numbers.
+cat oclc_catkeys.lst | catalogdump -oF -kf >all_records.flat
+# The oclc.py can read flat files.
 ```
 
 Once done use `oclc.py` script's `--local` can be used to create a master list of OCLC numbers. Those marked with `+` need to be set, those with `-` need to be unset, `?` means check the number, and a ` ` indicates nothing needs to be done.
@@ -281,7 +234,8 @@ cat oclc_catalog_selection.lst | sort | uniq >oclc_catalog_selection.uniq.lst
 # Output the flat records as a flat file.
 # If the records don't wrap, pipe it to flatskip -if -aMARC -om >mixed.flat
 # -oF outputs the flat record without linewrapping.
-cat oclc_catalog_selection.uniq.lst | catalogdump -oF >oclc_submission.flat
+# -kf outputs the flexkey TCN in the 001 for matching.
+cat oclc_catalog_selection.uniq.lst | catalogdump -oF -kf >oclc_submission.flat
 ```
 # Updating the Library's Catalog Records
 The `oclc.py` will use information in oclc's responses to create a slim-flat file for overlaying updated OCoLC numbers in the `035` tag. The slim-flat file can then be used with Symphony's `catalogmerge` API command to update the ILS.
@@ -313,7 +267,7 @@ Once done we can use `catalogmerge` to update the bib record with the data from 
 # -d delete all existing occurrences of entries being merged.
 # -f is followed by a list of options specifying how to use the flexible key.
 #    g use the local number as is (001). *TCN*
-# -r reorder record according to format.
+# -r reorder record according to format. Don't reorder. It messes with diffing results.
 # -l Use the format to determine the tags to be merged. If the tag is
 #      marked as non-repeatable, do not merge if the Symphony record contains
 #      the tag. If the tag is non-repeatable, and the Symphony record does not

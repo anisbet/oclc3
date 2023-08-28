@@ -19,34 +19,17 @@
 #
 ###############################################################################
 import sys
-from os.path import join, dirname, exists, getsize
+from os.path import join, dirname, exists
 import yaml
 import argparse
-import re
-from oclcws import OclcService
-from oclcreport import OclcReport
-from flat import Flat
-from log import Log
-from flat2marcxml import MarcXML
-from holdingsreport import HoldingsReport
+from lib.oclcws import OclcService
+from lib.oclcreport import OclcReport
+from log import Logger
+from lib.listutils import Lister, InstructionManager
+# from lib.flat import Flat
+# from lib.flat2marcxml import MarcXML
 
-#######test#########
-# Use this so outputs match doctest expectations.
-# TEST = True
-#######test#########
-#######prod#########
-# Use this for Sandbox or Production. 
-TEST = False
-#######prod#########
-VERSION='2.03.01'
-
-# OCLC number search regexes. Lines that start with '+' mean add
-# the record, '-' means delete, and '?' means check the number. 
-# Neither of these characters or a space mean ignore the line.
-OCLC_ADD_MATCHER = re.compile(r'^[+]?(\d|\(OCoLC\))?\d+\b(?!\.)')
-OCLC_DEL_MATCHER = re.compile(r'^[\-]?(\d|\(OCoLC\))?\d+\b(?!\.)')
-OCLC_CHK_MATCHER = re.compile(r'^[?]?(\d|\(OCoLC\))?\d+\b(?!\.)')
-NUM_MATCHER  = re.compile(r'\d+')
+VERSION='3.00.00'
 
 # Loads the yaml file for configs.
 # param: path of the yaml file. 
@@ -65,240 +48,15 @@ def _load_yaml_(yaml_path:str) -> dict:
         config['error'] = msg
     return config
 
-# Find set values in a string as read from a flat record value, 
-# after the '|' delimiter. For example '.035.    |a(OCoLC)12345678'
-# the search string should be '(OCoLC)12345678'. But any string that 
-# starts with digits or '+' will also match a 'set' request.
-# param: line str to search. 
-# return: The matching OCLC number or nothing if none found.
-def _find_set_(line:str):
-    if re.search(OCLC_ADD_MATCHER, line):
-        oclc_num_match = re.search(NUM_MATCHER, line)
-        return oclc_num_match[0]
-
-# Find unset values in a string. 
-# param: line str to search. 
-# return: The matching OCLC number or nothing if no match.
-def _find_unset_(line):
-    del_matches = re.search(OCLC_DEL_MATCHER, line)
-    if del_matches:
-        oclc_num_match = re.search(NUM_MATCHER, line)
-        return oclc_num_match[0]
-
-# Find oclc numbers that need checking. 
-# param: line str from OCLC number list file. 
-# return: The matching OCLC number or nothing if no match.
-def _find_check_(line):
-    matches = re.search(OCLC_CHK_MATCHER, line)
-    if matches:
-        num_match = re.search(NUM_MATCHER, line)
-        return num_match[0]
-
-# Read OCLC numbers from a given file. OCLC numbers must appear 
-# one-per-line and can use the following syntax. OCLC numbers in lines must:
-#
-# * Start the line with at least 4 and at most 9 digits. 
-# * May include a leading '+', '-', or ' ' and are treated as follows.
-#  
-# * SET: the script will ignore lines that start with ' ', '-', or any
-#   non-integer value.
-#  
-# * UNSET: the script will ignore lines that start with ' ', '+', or any
-#   non-integer value. That is, if a line starts with an integer larger than 
-#   9999, the OCLC number is considered a delete record if the '--unset' 
-#   switch is used.
-# param: Path to the list of OCLC numbers. 
-# param: Keyword (str) of either 'set' or 'unset'. 
-# param: Debug bool, if you want debug information displayed. 
-# return: List of OCLC numbers to be set or unset.
-def _read_num_file_(num_file:str, requested_activity:str, debug:bool=False) ->list:
-    nums = []
-    if debug:
-        print(f"Reading {num_file}")
-    if not exists(num_file):
-        sys.stderr.write(f"*error, no such file: '{num_file}'.\n")
-        return nums
-
-    # Read in a list of OCLC numbers to set.
-    with open(num_file, encoding='ISO-8859-1', mode='r') as f:
-        for l in f:
-            line = l.rstrip()
-            if requested_activity == 'set':
-                num = _find_set_(line)
-                if num:
-                    nums.append(num)
-            elif requested_activity == 'unset':
-                num = _find_unset_(line)
-                if num:
-                    nums.append(num)
-            elif requested_activity == 'check':
-                num = _find_check_(line)
-                if num:
-                    nums.append(num)
-            else: # neither 'set', 'check', nor 'unset'
-                sys.stderr.write(f"*error, invalid parameter: '{requested_activity}'!")
-                break
-    f.close()
-    if debug:
-        print(f"Found {len(nums)} OCLC numbers to {requested_activity} in file '{num_file}'.")
-        print(f"The first 3 numbers read are: {nums[:3]}...")
-    return nums
-
-# Write out the master list. Do not append, delete if exists.
-# param: path string file name.
-# param: list of oclc numbers to write to the master file. The 
-#   list will consist of integers prefixed with either '+', '-'
-#   '?', '!', or ' '.
-# param: add_list: List of numbers to add or set as holdings.   
-# param: del_list: List of numbers to unset or delete as holdings. 
-# param: check_list: List of numbers for OCLC to confirm.
-# param: done_list: Used to avoid identify numbers that have been processed
-#    and should not be resubmitting via the API. 
-# param: debug writes diagnostic info to stdout if True.
-# return: none
-def write_update_instruction_file(
-    path:str, 
-    master_list:list=[],
-    add_list:list=[], 
-    del_list:list=[], 
-    check_list:list=[], 
-    done_list:list=[],
-    debug:bool=True):
-    with open(path, encoding='ISO-8859-1', mode='w') as f:
-        if master_list:
-            for holding in master_list:
-                f.write(f"{holding}\n")
-        else:
-            for holding in add_list:
-                f.write(f"+{holding}\n")
-            for holding in del_list:
-                f.write(f"-{holding}\n")
-            for holding in check_list:
-                f.write(f"?{holding}\n")
-            for holding in done_list:
-                f.write(f"!{holding}\n")
-    f.close()
-
-# Reads the master list of instructions. The master list is created by a
-# either '--set', '--unset', or the combination of '--local' and '--remote'.
-# 
-# The file is expected to consist of integers, one-per-line that are preceeded by 
-# '+' indicating set, '-' unset, '?' confirm, '!' completed, or ' ' ignore.
-#   
-# param: path the master list file name. Default 'master.lst'.
-# param: list of oclc numbers to add. The list is just integers.
-# param: list of oclc numbers to delete. List of integers.
-# param: list of oclc numbers to check. Ditto integers. 
-# param: done_list: List of OCLC numbers that have already been submitted.
-# param: debug writes diagnostic info to stdout if True.
-# return: a set of lists; add_list, del_list, check_list, done_list. 
-def read_master(path:str='master.lst', debug:bool=True):
-    # Clear in case used from another switch.
-    add_list = []
-    del_list = []
-    check_list = []
-    done_list = []
-    if exists(path) and getsize(path) > 0:
-        if debug:
-            print(f"checking {path} for OCLC numbers and processing instructions.")
-        with open(path, encoding='ISO-8859-1', mode='r') as f:
-            
-            skipped = 0
-            for temp in f:
-                number = temp.rstrip()  
-                if number.startswith('+'):
-                    add_list.append(number[1:])
-                elif number.startswith('-'):
-                    del_list.append(number[1:])
-                elif number.startswith('?'):
-                    check_list.append(number[1:])
-                elif number.startswith('!'):
-                    done_list.append(number[1:])
-                else:
-                    skipped += 1
-                    continue
-            if debug:
-                print(f"first 5 add records: {add_list[:5]}")
-                print(f"first 5 del records: {del_list[:5]}")
-                print(f"first 5 chk records: {check_list[:5]}")
-                print(f"first 5 fin records: {done_list[:5]}")
-                print(f"{skipped} records with no changes")
-    return add_list, del_list, check_list, done_list
-
-# Used for reporting percents.
-# param: value float value.
-# param: prec integer precision of the returned float. 
-# return: float value of requested precision.  
-def trim_decimals(value, prec:int=2) ->float:
-    f_str = f"%.{prec}f"
-    return float(f_str % round(float(value), prec))
-
-# Given two lists, compute which numbers OCLC needs to add (or set), which they need to delete (unset)
-# and which need no change.
-# param:  List of oclc numbers to delete or unset.
-# param:  List of oclc numbers to set or add. 
-# return: List of OCLC integer numbers preceeded by instruction character.  
-def diff_deletes_adds(del_nums:list, add_nums:list, logger:Log=None, debug:bool=False) -> list:
-    # Store uniq nums and sign.
-    ret_dict = {}
-    p_count = 0
-    total   = 0
-    for oclcnum in del_nums:
-        ret_dict[oclcnum] = "-"
-    total += p_count
-    p_count = 0
-    for libnum in add_nums:
-        if libnum in ret_dict:
-            ret_dict[libnum] = " "
-        else:
-            ret_dict[libnum] = "+"
-    ret_list = []
-    a_count = 0
-    c_count = 0
-    d_count = 0
-    nc_count = 0
-    done_count = 0
-    unknown = 0
-    for (num, sign) in ret_dict.items():
-        if sign == '-':
-            d_count += 1
-        elif sign == '+':
-            a_count += 1
-        else: 
-            # This includes ' ', '?' and '!' because they 
-            # are irrelevant in difference comparisons.
-            nc_count += 1
-        ret_list.append(f"{sign}{num}")
-    total = len(ret_list)
-    per_over = 'na'
-    per_under = 'na'
-    if total > 0: # Stop divide by zero on empty
-        per_over = trim_decimals((float(d_count) / float(total)) * 100.0, prec=1)
-        per_under = trim_decimals((float(a_count) / float(total)) * 100.0, prec=1)
-    total_changes = a_count + d_count
-    msg = f"Diff report:\n"
-    msg += f"     total records: {total}\n"
-    msg += f"        no changes: {nc_count}\n"
-    msg += f"           changes: {total_changes}\n"
-    msg += f"               (+): {a_count}\n"
-    msg += f"               (-): {d_count}\n"
-    msg += f"  over represented: {per_over}%\n"
-    msg += f" under represented: {per_under}%"
-    if logger:
-        logger.logit(f"{msg}", include_timestamp=False)
-    else:
-        print(f"{msg}")
-    return ret_list
-
 # Prints a consistent tally message of how things worked out. 
 # param: action string, what type of service called this function. 
 # param: tally dictionary provided by the report object of parsed JSON results. 
-# param: Log object to write to the log file. 
+# param: Logger object to write to the log file. 
 # param: Remaining records, count of records that didn't get processed. This 
 #   can be non-zero if the web service is interupted or you exceed quota of 
 #   web service calls.
 # return: none
-def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
+def print_tally(action:str, tally:dict, logger:Logger, remaining:int=0):
     msg =  f"operation '{action}' results.\n"
     msg += f"          succeeded: {tally['success']}\n"
     msg += f"           warnings: {tally['warnings']}\n"
@@ -311,34 +69,34 @@ def print_tally(action:str, tally:dict, logger:Log, remaining:int=0):
 # Creates an institutional-specific bib record. 
 # param: list of records as lists of FLAT strings, where FLAT refers to 
 #  SirsiDynix's Symphony FLAT record format.
-def upload_bib_record(
-  flat_records:list, 
-  configs:dict, 
-  logger:Log, 
-  debug:bool=False):
-    if not flat_records:
-        print_tally('bib upload', {}, logger)
-        return
-    # TODO: This request throws an error on the test sandbox. I have submitted a query
-    # to OCLC to determine why, but have not heard back yet. April 06, 2023.
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
-    left_over_record_count = 0
-    for flat_record in flat_records:
-        xml_record = MarcXML(flat_record)
-        if debug:
-            print(f"DEBUG HERE xml: {xml_record}")
-        response = ws.create_intitution_level_bib_record(xml_record.as_bytes(), debug=debug)
-        # response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
-        if debug:
-            print(f"DEBUG HERE response: {response}")
-        if not report.create_bib_response(response, debug=debug):
-            left_over_record_count = len(flat_records)
-            msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
-            logger.logit(msg, level='error', include_timestamp=True)
-            break
-    r_dict = report.get_bib_load_results()
-    print_tally('bib upload', r_dict, logger)
+# def upload_bib_record(
+#   flat_records:list, 
+#   configs:dict, 
+#   logger:Logger, 
+#   debug:bool=False):
+#     if not flat_records:
+#         print_tally('bib upload', {}, logger)
+#         return
+#     # TODO: This request throws an error on the test sandbox. I have submitted a query
+#     # to OCLC to determine why, but have not heard back yet. April 06, 2023.
+#     ws = OclcService(configs, debug=debug)
+#     report = OclcReport(debug=debug)
+#     left_over_record_count = 0
+#     for flat_record in flat_records:
+#         xml_record = MarcXML(flat_record)
+#         if debug:
+#             print(f"DEBUG HERE xml: {xml_record}")
+#         response = ws.create_intitution_level_bib_record(xml_record.as_bytes(), debug=debug)
+#         # response = ws.validate_add_bib_record(xml_record.as_bytes(), debug=debug)
+#         if debug:
+#             print(f"DEBUG HERE response: {response}")
+#         if not report.create_bib_response(response, debug=debug):
+#             left_over_record_count = len(flat_records)
+#             msg = f"The web service stopped while uploading XML holdings.\nThe last record processed was {flat_record}\n\n"
+#             logger.logit(msg, level='error', include_timestamp=True)
+#             break
+#     r_dict = report.get_bib_load_results()
+#     print_tally('bib upload', r_dict, logger)
 
 # Adds or sets the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -350,14 +108,14 @@ def upload_bib_record(
 def add_holdings(
   oclc_numbers:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not oclc_numbers:
         print_tally('add / set', {}, logger)
         return
     # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
+    ws = OclcService(configs, debug=debug)
+    report = OclcReport(debug=debug)
     done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.set_institution_holdings(oclc_numbers)
@@ -365,7 +123,10 @@ def add_holdings(
         last_oclc_number = ''
         if done:
             last_oclc_number = done[-1]
-        if not report.set_response(code=status_code, json_data=content, debug=debug):
+        went_okay, messages = report.set_response(code=status_code, json_data=content, debug=debug)
+        if went_okay:
+            logger.logem(messages)
+        else:
             msg = f"The web service stopped while setting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
@@ -384,14 +145,14 @@ def add_holdings(
 def check_institutional_holdings(
   oclc_numbers:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not oclc_numbers:
         print_tally('check', {}, logger)
         return
     # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
+    ws = OclcService(configs, debug=debug)
+    report = OclcReport(debug=debug)
     done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.check_institution_holdings(oclc_numbers, debug=debug)
@@ -399,7 +160,10 @@ def check_institutional_holdings(
         last_oclc_number = ''
         if done:
             last_oclc_number = done[-1]
-        if not report.check_holdings_response(code=status_code, json_data=content, debug=debug):
+        went_okay, messages = report.check_holdings_response(code=status_code, json_data=content, debug=debug)
+        if went_okay:
+            logger.logem(messages)
+        else:
             msg = f"The web service stopped while checking numbers:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
@@ -418,14 +182,14 @@ def check_institutional_holdings(
 def delete_holdings(
   oclc_numbers:list, 
   configs:dict, 
-  logger:Log, 
+  logger:Logger, 
   debug:bool=False):
     if not oclc_numbers:
         print_tally('delete / unset', {}, logger)
         return
     # Create a web service object. 
-    ws = OclcService(configs, logger=logger, debug=debug)
-    report = OclcReport(logger=logger, debug=debug)
+    ws = OclcService(configs, debug=debug)
+    report = OclcReport(debug=debug)
     done_list = []
     while oclc_numbers:
         param_str, status_code, content = ws.unset_institution_holdings(oclc_numbers, debug=debug)
@@ -433,7 +197,10 @@ def delete_holdings(
         last_oclc_number = ''
         if done:
             last_oclc_number = done[-1]
-        if not report.delete_response(code=status_code, json_data=content, debug=debug):
+        went_okay, messages = report.delete_response(code=status_code, json_data=content, debug=debug)
+        if went_okay:
+            logger.logem(messages)
+        else:
             msg = f"The web service stopped while deleting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
             break
@@ -442,327 +209,224 @@ def delete_holdings(
     print_tally('delete / unset', r_dict, logger)
     return done_list
 
-# Compares two lists and removes list two items from list one.
-def _cmp_lists_(l1:list, l2:list) -> list:
-    l1_dict = dict.fromkeys(l1, 1)
-    for oclc_num in l2:
-        if oclc_num in l1_dict:
-            l1_dict.pop(oclc_num)
-    return list(l1_dict.keys())
-
-# Given the logger parse out the update responses and return
-# them in a dictionary like: {'old_num': 'new_num'}
-# param: logger of the events, can provide the default log file, and writes
-#   any diagnostic messages to the log.
-# param: Optional string of the log file to parse if you don't want to use the
-#   default the logger is using. This is for testing but also for re-processing
-#   old logs, or perhaps if the log file was not truncated since it last ran. 
-#   In that case if the old OCLC number isn't found in the input flat file 
-#   it will be ignored anyway. 
-# # param: debug:bool default False turns on helpful diagnostic messages.   
-# return: dict of old oclc number keys and new oclc number values.
-def parse_log_for_updated_numbers(logger:Log, log_file:str='', debug:bool=False) -> dict:
-    # ?850940368 - Record confirmed
-    # operation 'check' results.
-    #           succeeded: 10
-    #            warnings: 0
-    #              errors: 0
-    #       total records: 10
-    # +850939592 - added
-    # +1002030249  updated to 968312172, Record not found for holdings operation
-    # ?850940368 is OCPSB holding: False as of '2023-04-21 01:48:24' See http://worldcat.org/oclc/850940368 for more information.
-    # +10003751 - updated to 1080766101, Record not found for holdings operation
-    # +1001073803 - updated to 945719262, Record not found for holdings operation
-    # ... 
-    old_new_numbers = {}
-    if not log_file:
-        log_file = logger.get_log_file()
-    if exists(log_file) and getsize(log_file) > 0:
-        if debug:
-            logger.logit(f"reading {log_file} for updated OCLC numbers.")
-        old_num_regex = re.compile(r'^\+\d+\s')
-        new_num_regex = re.compile(r'(updated to)\s\d+\,')
-        with open(log_file, encoding='ISO-8859-1', mode='r') as log:
-            line_num = 0
-            for line in log:
-                # Look for the last record.
-                new_num_match = re.search(new_num_regex, line)
-                if not new_num_match:
-                    continue
-                new_num = new_num_match[0][11:-1]
-                old_num_match = re.search(old_num_regex, line)
-                if not old_num_match:
-                    if debug:
-                        logger.logit(f"*warning while reading {log_file}. Found an update but couldn't parse the original number.")
-                    continue
-                old_num = old_num_match[0][1:-1]
-                if TEST:
-                    logger.logit(f"TEST: updated pairs: '{old_num}' => '{new_num}'")
-                old_new_numbers[f"{old_num}"] = str(new_num)
-    else:
-        if TEST:
-            logger.logit(f"*warning: log file {log_file} is missing or empty.")
-        else:
-            logger.logit(f"*warning: log file {log_file} is missing or empty.",
-                level='error', include_timestamp=True)
-    return old_new_numbers
-
 # Main entry to the application if not testing.
 def main(argv):
+    
+#     hints_msg = '''
+#     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
+#     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
+#     field of the record(s) in a flat file. In that case the first sub-field 'a' is assumed to be the OCLC number.
 
+#     CSV (or TSV) files are assumed to be OCLC holding reports converted from XSLX (see Readme.md for instructions).
+#     Currently these reports start with '=HYPERLINK...' and the OCLC number is extracted from the alt text of the
+#     first field.
+
+#     All other file formats are assumed to contain OCLC numbers somewhere on each line and the first number match
+#     is assumed to be the OCLC number. See Readme.md for more information and limitations.
+
+#     Supported list files are 
+#       * '.flat'
+#       * '.lst'
+#       * '.txt'
+#       * '.csv/.tsv'
+#     The last two are the formats that OCLC uses in their holdings reports.
+
+#     You may supply an --add and/or --delete file. In any case duplicate requests are removed, and conflicting
+#     requests are neutralized. For example, requesting '1111111' in an --add and --delete list will output an
+#     instruction of ' 1111111', which will not be submitted to OCLC since it would count against quotas.
+
+#     YAML Files
+#     ----------
+# # Test YAML
+# author:          'Andrew Nisbet'
+# service: 
+#   name:          'WCMetaDataTest'
+#   clientId:      '[supplied by OCLC]'
+#   secret:        '[supplied by OCLC]'
+#   registryId:    '[supplied by OCLC]'
+#   principalId:   '[supplied by OCLC]'
+#   principalIdns: 'urn:oclc:wms:da'
+#   institutionalSymbol: 'OCPSB'
+#   branchName:    'MAIN'
+# ignoreTags: 
+#   '250': 'Expected release'
+# hitsQuota:       100
+# dataDir:         'data'
+#     '''
     parser = argparse.ArgumentParser(
         prog = 'oclc',
         usage='%(prog)s [options]' ,
-        description='Maintains holdings in OCLC WorldCat database.',
-        epilog='See "-h" for help more information.'
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='''\
+            Maintains holdings in OCLC WorldCat database.
+            ''',
+        epilog='''\
+    Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
+    the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
+    field of the record(s) in a flat file. In that case the first sub-field 'a' is assumed to be the OCLC number.
+
+    CSV (or TSV) files are assumed to be OCLC holding reports converted from XSLX (see Readme.md for instructions).
+    Currently these reports start with '=HYPERLINK...' and the OCLC number is extracted from the alt text of the
+    first field.
+
+    All other file formats are assumed to contain OCLC numbers somewhere on each line and the first number match
+    is assumed to be the OCLC number. See Readme.md for more information and limitations.
+
+    Supported list files are 
+      * '.flat'
+      * '.lst'
+      * '.txt'
+      * '.csv/.tsv'
+    The last two are the formats that OCLC uses in their holdings reports.
+
+    You may supply an --add and/or --delete file. In any case duplicate requests are removed, and conflicting
+    requests are neutralized. For example, requesting '1111111' in an --add and --delete list will output an
+    instruction of ' 1111111', which will not be submitted to OCLC since it would count against quotas.
+
+    YAML Files
+    ----------
+# Test YAML
+author:          'Andrew Nisbet'
+service: 
+  name:          'WCMetaDataTest'
+  clientId:      '[supplied by OCLC]'
+  secret:        '[supplied by OCLC]'
+  registryId:    '[supplied by OCLC]'
+  principalId:   '[supplied by OCLC]'
+  principalIdns: 'urn:oclc:wms:da'
+  institutionalSymbol: 'OCPSB'
+  branchName:    'MAIN'
+ignoreTags: 
+  '250': 'Expected release'
+hitsQuota:       100
+dataDir:         'data'           
+        '''
     )
+    parser.add_argument('--add', action='store', metavar='[/foo/my_nums.lst]', help='List of OCLC numbers to add to OCLC\'s holdings database.')
+    parser.add_argument('--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
+    parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
+    parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
+    parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
+    parser.add_argument('--instructions', action='store', default='instructions.lst', metavar='[/foo/instructions.lst]', help='OCLC update instructions file name.')
+    parser.add_argument('--log', action='store', default='oclc.log', metavar='[/foo/oclc_YYYY-MM-DD.log]', help=f"Log file.")
+    parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
-    parser.add_argument('-c', '--check', action='store', metavar='[/foo/check.lst]', help='Check if the OCLC numbers in the list are valid.')
-    parser.add_argument('--csv', action='store', metavar='[/foo/oclc_report.csv]', help='Read OCLC report as CSV. Numbers are appended to the remote, or unset list.')
-    parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging.')
-    flat_msg = """
-    Use a flat file of the bib records collected from the library\'s ILS instead of going to the trouble of making a '--local' file list.
-    Once the process runs, this flat file will be modified and converted into a slim flat file ready for use by Symphony's 'catalogmerge'
-    API command. Only records that require updated OCLC numbers will be output. The records that require updating will contain all 
-    document headers, a 001 flexkey as matchpoint, and ALL 035 tags. The OCLC 035 tags will be modified to include new OCLC numbers in
-    the 'a' field and the old OCLC number in the 'z' sub-field. 
-
-    You cannot use '--local' and '--flat'.
-    """
-    parser.add_argument('-f', '--flat', action='store', metavar='[/foo/bibs.flat]', help=f"{flat_msg}")
-    parser.add_argument('-i', '--ignore', action='store', metavar='{"tag_num": "tag text"}', help=f"Ignore bib records that have a given tag that contains a specific value.")
-    parser.add_argument('-l', '--local', action='store', metavar='[/foo/local.lst]', help='Local OCLC numbers list collected from the library\'s ILS.')
-    parser.add_argument('-r', '--remote', action='store', metavar='[/foo/remote.lst]', help='Remote (OCLC) numbers list from WorldCat holdings report.')
-    parser.add_argument('-s', '--set', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to add or set in WorldCat.')
-    parser.add_argument('-u', '--unset', action='store', metavar='[/foo/bar.txt]', help='OCLC numbers to delete from WorldCat.')
-    parser.add_argument('--update', action='store_true', default=False, help='Actually do the work set out in the --update_instructions file.')
-    parser.add_argument('--update_instructions', action='store', help=f"File that contains instructions to update WorldCat.")
-    wl_msg = """ 
-    Computes the what is left to do in the master list based on what is in the receipt file. The master list is defined by the 
-    '--update_instructions' flag, while the receipt file is always named 'receipt.txt'. If the web service times out or you exceed 
-    quotas, you can use this to compare the two files and create a new master list. By default the master list is over-written 
-    with the remaining instructions, including any edits to the master list since the receipt was created. That is, if the script
-    created a receipt with '-11111111' as deleted, but the master list was later changed to '?11111111', the new check instruction
-    is preserved and written to the master list.
-
-    python oclc.py --whats_left --update_instructions=master.lst
-    """
-    parser.add_argument('--whats_left', action='store_true', help=f"{wl_msg}")
-    parser.add_argument('-x', '--xml_records', action='store', help='file of MARC21 XML catalog records to submit as special local holdings.')
-    parser.add_argument('-y', '--yaml', action='store', metavar='[/foo/test.yaml]', required=True, help='alternate YAML file for testing.')
+    parser.add_argument('-y', '--yaml', action='store', default='test.yaml', metavar='[/foo/prod.yaml]', help='alternate YAML file for testing. Default to "test.yaml"')
     args = parser.parse_args()
     
     # Load configuration.
-    if args.yaml and exists(args.yaml):
-        configs = _load_yaml_(args.yaml)
+    yaml_file = 'test.yaml'
+    if args.yaml:
+        yaml_file = args.yaml
+    if exists(yaml_file):
+        configs = _load_yaml_(yaml_file)
         if 'error' in configs.keys():
             sys.stderr.write(configs.get('error'))
             sys.exit()
-        logger = Log(log_file=configs.get('report'))
+        logger = Logger(log_file=args.log)
+        hits_quota = configs.get('hitsQuota')
         logger.logit(f"=== starting version {VERSION}", include_timestamp=True)
     else:
-        sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{args.yaml}'.\n")
+        sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{yaml_file}'.\n")
         sys.exit()
 
-    ignore_tags = {}
-    if args.ignore:
-        ignore_tags = args.ignore
-    else:
-        ignore_tags = configs.get('ignore')
     if args.debug:
         logger.logit(f"== vars ==")
+        logger.logit(f"add: '{args.add}'")
+        logger.logit(f"delete: '{args.delete}'")
         logger.logit(f"check: '{args.check}'")
-        logger.logit(f"check: '{args.csv}'")
+        logger.logit(f"done: '{args.done}'")
         logger.logit(f"debug: '{args.debug}'")
-        logger.logit(f"flat: '{args.flat}'")
-        logger.logit(f"ignore: '{args.ignore}'")
-        logger.logit(f"local: '{args.local}'")
-        logger.logit(f"remote: '{args.remote}'")
-        logger.logit(f"set: '{args.set}'")
-        logger.logit(f"unset: '{args.unset}'")
-        logger.logit(f"update: '{args.update_instructions}'")
-        logger.logit(f"xml records: '{args.xml_records}'")
-        logger.logit(f"yaml: '{args.yaml}'")
-        logger.logit(f"whats_left: {args.whats_left}")
-        if 'addQuota' in configs:
-            logger.logit(f"add quota: {configs['addQuota']}")
-        else:
-            logger.logit(f"add unlimited")
-        if 'deleteQuota' in configs:
-            logger.logit(f"delete quota: {configs['deleteQuota']}")
-        else:
-            logger.logit(f"delete unlimited")
-        if 'checkQuota' in configs:
-            logger.logit(f"check quota: {configs['checkQuota']}")
-        else:
-            logger.logit(f"check unlimited")
+        logger.logit(f"instructions: '{args.instructions}'")
+        logger.logit(f"run: '{args.run}'")
+        logger.logit(f"yaml: '{yaml_file}'")
+        logger.logit(f"hits quota: '{hits_quota}'")
         logger.logit(f"== vars ==\n")
 
     # Upload XML MARC21 records.
-    if args.xml_records:
-        # TODO: Waiting for OCLC to respond with answers to why the XML throws an error. 
-        print(f"*warning, the request to upload local XML records is currently not supported.")
-        pass
+    # if args.xml_records:
+    #     # TODO: Waiting for OCLC to respond with answers to why the XML throws an error.
+    #     # TODO: Move to different class that works with the flat file to create xml for 
+    #     # TODO: records that don't have OCLC numbers, and to create a slim file for updating ILS
+    #     # TODO: records.  
+    #     print(f"currently not supported.")
+    #     pass
     
     # Two lists, one for adding holdings and one for deleting holdings. 
     set_holdings_lst   = []
     unset_holdings_lst = []
     check_holdings_lst = []
     done_lst           = []
-    flat_manager       = None
 
     # Add records to institution's holdings.
-    if args.set:
-        set_holdings_lst = _read_num_file_(args.set, 'set', args.debug)
+    if args.add:
+        lister = Lister(args.add, debug=args.debug)
+        set_holdings_lst = lister.get_list('+')
         
     # delete records from institutional holdings.
-    if args.unset:
-        unset_holdings_lst.extend(_read_num_file_(args.unset, 'unset', args.debug))
-        logger.logit(f"read remote list of OCLC numbers: '{args.unset}'")
-
-    # Read delete oclc numbers from the holdings report csv. 
-    if args.csv:
-        holdings_report = HoldingsReport(args.csv, args.debug, logger=logger)
-        unset_holdings_lst.extend(holdings_report.get_remote_numbers())
-        logger.logit(f"read holdings report '{args.csv}'")
+    if args.delete:
+        lister = Lister(args.delete, debug=args.debug)
+        unset_holdings_lst = lister.get_list('-')
 
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
-        check_holdings_lst.extend(_read_num_file_(args.check, 'check', args.debug))
+        lister = Lister(args.check, debug=args.debug)
+        check_holdings_lst = lister.get_list('?')
 
-    # Create set list from a flat file.
-    if args.flat:
-        # A Flat object can read and parse flat files as well as return OCLC
-        # numbers and update oclc numbers for slim flat file overlay files.
-        flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=ignore_tags)
-        set_holdings_lst.extend(flat_manager.get_local_list())
+    if args.done:
+        lister = Lister(args.done, debug=args.debug)
+        done_lst = lister.get_list('!')
 
-    # TODO: Wanted, to write out what has been requested to do.
-    write_update_instruction_file(path='oclc_update_instructions.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
-
-    # Compute the difference between the master list and what the receipt list has done,
-    # then overwrite the master list.
-    if args.whats_left and args.update_instructions:
-        mset_lst, munset_lst, mcheck_lst, mdone_lst = read_master(args.update_instructions, debug=args.debug)
-        rset_lst, runset_lst, rcheck_lst, rdone_lst = read_master('receipt.txt', debug=args.debug)
-        # Check the master set and unset lists and remove the values from the receipt's set and unset lists 
-        # and output as the master file. 
-        logger.logit(f"updating {args.update_instructions} with work already done from 'receipt.txt'")
-        mset_lst   = _cmp_lists_(mset_lst, rset_lst)
-        logger.logit(f" leftover adds {len(mset_lst)}")
-        munset_lst = _cmp_lists_(munset_lst, runset_lst)
-        logger.logit(f" leftover deletes {len(munset_lst)}")
-        mcheck_lst = _cmp_lists_(mcheck_lst, rcheck_lst)
-        logger.logit(f" leftover checks {len(mcheck_lst)}")
-        mdone_lst  = _cmp_lists_(mdone_lst, rdone_lst)
-        logger.logit(f" leftover done list size: {len(mdone_lst)}")
-        write_update_instruction_file(path=args.update_instructions, 
-          add_list=mset_lst,
-          del_list=munset_lst,
-          check_list=mcheck_lst,
-          done_list=mdone_lst)
-        logger.logit(f"re-run script with new master list.")
-        sys.exit()
-
-    # Reclamation report that is both files must exist and be read.
-    if (args.local or args.flat) and (args.remote or args.csv):
-        # Read the list of local holdings. See Readme.md for more information on how
-        # to collect OCLC numbers from the ILS.
-        set_holdings_lst.clear()
-        if args.local:
+    # Merge any and all lists.  
+    instruction_manager = InstructionManager(args.instructions, debug=args.debug)
+    instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+    # Output the instructions list. 
+    instruction_manager.write_instructions(instruction_list)
+     
+    if args.run:
+        # Load instruction list specified by args.run. 
+        instruction_manager = InstructionManager(args.run, debug=args.debug)
+        set_holdings_lst    = instruction_manager.read_instruction_numbers('+')
+        unset_holdings_lst  = instruction_manager.read_instruction_numbers('-')
+        check_holdings_lst  = instruction_manager.read_instruction_numbers('?')
+        # If there are done items in the file, mark them done for when we write to '.completed'.
+        done_lst            = list('!' + num for num in instruction_manager.read_instruction_numbers('!'))
+        
+        # Call the web service with the appropriate list, and capture results.
+        try:
             if args.debug:
-                sys.stderr.write(f"DEBUG: starting to read local holdings.\n")
-            set_holdings_lst = _read_num_file_(args.local, 'set', args.debug)
-        if args.flat:
-            if args.debug:
-                sys.stderr.write(f"DEBUG: starting to read holdings from flat file.\n")
-            flat_manager = Flat(args.flat, args.debug, logger=logger, ignore=ignore_tags)
-            set_holdings_lst.extend(flat_manager.get_local_list())
-        if args.debug:
-            sys.stderr.write(f"DEBUG: done.\n")
-        # Read the report of remote holdings (holdings at OCLC)
-        unset_holdings_lst.clear()
-        if args.debug:
-            sys.stderr.write(f"DEBUG: starting to read OCLC holdings.\n")
-        unset_holdings_lst = _read_num_file_(args.remote, 'unset', args.debug)
-        if args.debug:
-            sys.stderr.write(f"DEBUG: done.\n")
-        # Create a 'master' list that indicates with are to be removed 
-        # and which are to be added, then exit. The script can then be re-run
-        # using the same file for both the '--set' and '--unset' flags to run
-        # the master. Check the list first before beginning.
-        if args.debug:
-            sys.stderr.write(f"DEBUG: compiling difference of holdings.\n")
-        master_list = diff_deletes_adds(unset_holdings_lst, set_holdings_lst, logger=logger, debug=args.debug)
-        if args.debug:
-            sys.stderr.write(f"DEBUG: done.\n")
-            sys.stderr.write(f"DEBUG: writing {args.update_instructions}.\n")
-        if args.update_instructions:
-            write_update_instruction_file(path=args.update_instructions, master_list=master_list)
-        else:
-            sys.stderr.write(f"*warning, nothing written because you didn't use the --update_instructions flag.")
-        if args.debug:
-            sys.stderr.write(f"DEBUG: done.\n")
-
-    # Call the web service with the appropriate list, and capture results.
-    try:
-        if args.update:
-            if args.update_instructions:
-                set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst = read_master(args.update_instructions, debug=args.debug)
-                if args.debug:
-                    sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
-                if check_holdings_lst:
-                    check_holdings_lst = get_quota(check_holdings_lst, 'checkQuota', configs)
-                    done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                    done_lst.extend(done)
-                if unset_holdings_lst:
-                    unset_holdings_lst = get_quota(unset_holdings_lst, 'deleteQuota', configs)
-                    done = delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                    done_lst.extend(done)
-                if set_holdings_lst:
-                    set_holdings_lst = get_quota(set_holdings_lst, 'addQuota', configs)
-                    done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
-                    done_lst.extend(done)
-                write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
-                if flat_manager:
-                    my_updated_numbers = parse_log_for_updated_numbers(logger, debug=args.debug)
-                    if my_updated_numbers:
-                        flat_manager.update_and_write_slim_flat(my_updated_numbers)
-                    else:
-                        logger.logit(f"No slim file will be produced because no update numbers found in {logger.get_log_file()}\n")
-            else:
-                sys.stderr.write(f"*warning, nothing to do because you didn't use the --update_instructions flag.")
-        logger.logit('done', include_timestamp=True)
-    except KeyboardInterrupt:
-        write_update_instruction_file(path='receipt.txt', add_list=set_holdings_lst, del_list=unset_holdings_lst, check_list=check_holdings_lst, done_list=done_lst)
-        logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
-        logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
-
-# Returns a subset of the argument data list based on the quotas set 
-# for the type of data list. If the quota is not included in the configs, or if the
-# quota specified is not an integer, the entire list is returned.
-#  
-# param: data list of OCLC numbers.
-# param: quota string quota name defined in the yaml file. For example, 'checkQuota'
-#   'deleteQuota', or 'addQuota'. Note: quota values are used to slice the list.
-#   Negative numbers truncate 'N' values from the end of the list. Positive values
-#   returns a list from the zero-th (first) value upto and including the quota.
-#   If the quota the list size the entire list is returned. 
-# param: configs dictionary which (may) include the requested 'quota' parameter, and
-#   an integer value.
-# return: A subset of the data list which contains the quota of elements (OCLC numbers).   
-def get_quota(data:list, quota:str, configs:dict):
-    if quota in configs:
-        last_record = configs[quota]
-        if isinstance(last_record, int):
-            return data[:last_record]
-    return data
+                sys.stderr.write(f"set: {set_holdings_lst[:3]}...\nunset: {unset_holdings_lst[:3]}...\ncheck: {check_holdings_lst[:3]}...\n")
+            if check_holdings_lst:
+                check_holdings_lst = check_holdings_lst[0:int(hits_quota)]
+                done = check_institutional_holdings(check_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(list('!' + num for num in done))
+            if unset_holdings_lst:
+                unset_holdings_lst = unset_holdings_lst[0:int(hits_quota)]
+                done = delete_holdings(unset_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(list('!' + num for num in done))
+            if set_holdings_lst:
+                set_holdings_lst = set_holdings_lst[0:int(hits_quota)]
+                done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done_lst.extend(list('!' + num for num in done))
+            # Write out the lists
+            instruction_manager = InstructionManager(args.run + '.completed', debug=args.debug)
+            completed_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+            # Output the completed instructions list. Note this won't include numbers beyond quotas.
+            instruction_manager.write_instructions(completed_list)
+            logger.logit('done', include_timestamp=True)
+        except KeyboardInterrupt:
+            instruction_manager = InstructionManager(args.run + '.interrupted', debug=args.debug)
+            # Save the instructions that haven't been done yet.
+            set_holdings_lst   = list('+' + num for num in set_holdings_lst)
+            unset_holdings_lst = list('-' + num for num in unset_holdings_lst)
+            check_holdings_lst = list('?' + num for num in check_holdings_lst)
+            # Don't add another action character to the done_lst
+            complete_incomplete_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
+            # Output the state of the lists as they were at the time of the interrupt.
+            instruction_manager.write_instructions(complete_incomplete_list)
+            logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
+            logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
 
 if __name__ == "__main__":
-    if TEST:
-        import doctest
-        doctest.testmod()
-        doctest.testfile("oclc.tst")
-    else:
-        main(sys.argv[1:])
+    main(sys.argv[1:])
 # EOF
