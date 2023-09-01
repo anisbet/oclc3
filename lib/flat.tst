@@ -1,6 +1,5 @@
 >>> from flat import Flat 
 >>> flat = Flat("../test_data/test.flat", debug=True)
-DEBUG: reading ../test_data/test.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN on1347755731 on line 4
@@ -11,7 +10,6 @@ DEBUG: found an OCLC number (77777777) on line 8
 1 OCLC updates possible from 1 records read.
 
 >>> flat = Flat("../test_data/test2.flat", debug=True)
-DEBUG: reading ../test_data/test2.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN ocn779882439 on line 4
@@ -29,7 +27,6 @@ DEBUG: found an 035 on line 60 (.035.   |a(CaAE) o782078599)
 2 OCLC updates possible from 2 records read.
 
 >>> flat = Flat("../test_data/test3.flat", debug=True)
-DEBUG: reading ../test_data/test3.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN ocn779882439 on line 4
@@ -61,7 +58,6 @@ the method should generate a well formed
 slim flat record.
 
 >>> flat = Flat("../test_data/test.flat", debug=True)
-DEBUG: reading ../test_data/test.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN on1347755731 on line 4
@@ -114,7 +110,6 @@ Test record passes if record doesn't contain the / a reject tag.
 Test reading a record that already contains subfields of old OCLC numbers.
 
 >>> flat = Flat("../test_data/test5.flat", debug=True)
-DEBUG: reading ../test_data/test5.flat
 DEBUG: found document boundary on line 1
 DEBUG: found form description on line 2
 DEBUG: found TCN on1347755731 on line 4
@@ -122,3 +117,8 @@ DEBUG: found an OCLC number (769428891) on line 6
 DEBUG: found an 035 on line 7 (.035.   |a(Sirsi) 111111111)
 DEBUG: found an 035 on line 9 (.035.   |a(EPL)on1347755731)
 1 OCLC updates possible from 1 records read.
+
+>>> flat = Flat("../test_data/test6.flat", debug=False, ignore={'250':'Expected release'})
+rejecting ocn11111111111, no OCLC number.
+record epl4444444444 rejected because 250 contains 'Expected release'
+2 OCLC updates possible from 4 records read.

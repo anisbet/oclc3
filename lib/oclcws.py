@@ -256,55 +256,6 @@ class OclcService:
         # '
         return str(response.content)
 
-    # Used to create a bibliographic with holdings for a specific branch of 
-    # your institution.
-    # param: record in XML. 
-    # param: library branch that holds the bib record.
-    # param: debug boolean True will show the request URL.
-    # return: XML record, or XML error message. 
-    # <?xml version="1.0" encoding="UTF-8" standalone="yes"?> <error xmlns="http://worldcat.org/xmlschemas/response">
-    #     <code type="application">WS-403</code>
-    #     <message>The institution identifier provided does not match the WSKey credentials.</message>
-    # </error>
-    def create_branch_level_bib_record(self, record_xml:str, debug:bool=False) -> str:
-        access_token = self._get_access_token_()
-        headers = {
-            'accept': 'application/atom+xml;content="application/vnd.oclc.marc21+xml"',
-            "Authorization": f"Bearer {access_token}",
-            'Content-Type': 'application/vnd.oclc.marc21+xml'
-        }
-        url = f"https://worldcat.org/lbd/data?inst={self.inst_id}&instSymbol={self.inst_symbol}&holdingLibraryCode={self.branch}"
-        if debug:
-            print(f"DEBUG: url={url}")
-        response = requests.post(url=url, data=record_xml, headers=headers)
-        if debug:
-            print(f"DEBUG: response code {response.status_code} headers: '{response.headers}'\n content: '{response.content}'")
-        # curl -X 'POST' \
-        # 'https://worldcat.org/lbd/data?inst=128807&instSymbol=OCPSB&holdingLibraryCode=MAIN' \
-        # -H 'accept: application/atom+xml;content="application/vnd.oclc.marc21+xml"' \
-        # -H 'Authorization: Bearer tk_tP3Q1weM8zPY7RJkpYSCV4Y91smMFU21ng1t' \
-        # -H 'Content-Type: application/vnd.oclc.marc21+xml' \
-        # -d '<?xml version="1.0" encoding="UTF-8"?> <record xmlns="http://www.loc.gov/MARC21/slim">
-        #     <leader>00000n   a2200000   4500</leader>
-        #     <controlfield tag="004">99999999999999999999999</controlfield>
-        #     <datafield tag="240" ind1="1" ind2="4">
-        #         <subfield code="a">UniformTitleF</subfield>
-        #         <subfield code="l">LanguageOfWork</subfield>
-        #         <subfield code="g">OCL</subfield>
-        #     </datafield>
-        #     <datafield tag="500" ind1=" " ind2=" ">
-        #         <subfield code="a">FOR OCLC DEVELOPER NETWORK DOCUMENTATION</subfield>
-        #     </datafield>
-        #     <datafield tag="935" ind1=" " ind2=" ">
-        #         <subfield code="a">MyLocalSystemNumber</subfield>
-        #     </datafield>
-        #     <datafield tag="940" ind1=" " ind2=" ">
-        #         <subfield code="a">OCWMS</subfield>
-        #     </datafield>
-        # </record>                                               
-        # '
-        return response.content
-
     # Used to update a bibliographic with holdings at a specific branch.
     # param: record in XML. 
     # param: debug boolean True will show the request URL.

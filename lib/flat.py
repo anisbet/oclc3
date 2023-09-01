@@ -48,7 +48,8 @@ class Flat:
         self.flat = flat_file
         self.debug= debug
         self.reject_tags = ignore
-        if self.debug:
+        self.reject_recs = []
+        if IS_TEST:
             print(f"DEBUG: reading {self.flat}")
         if not exists(self.flat):
             sys.stderr.write(f"*error, no such flat file: '{self.flat}'." + linesep)
@@ -109,6 +110,7 @@ class Flat:
             if reject_tag.lower() in tag.lower(): 
                 if reject_value.lower() in tag_value.lower():
                     self.print_or_log(f"record {tcn} rejected because {reject_tag} contains '{reject_value}'")
+                    self.reject_recs.append(tcn)
                     return True
         return False
 
@@ -231,6 +233,10 @@ class Flat:
     def get_local_list(self):
         return list(self.slim_bib_records.keys())
 
+    # Returns a list of rejected records' TCNs.
+    def get_rejected_tcns(self) ->list:
+        return self.reject_recs
+
     # Pass the dictionary of new and old OCLC numbers. This method
     # will update the slim flat records and output to a file called
     # <input>.slim.flat.
@@ -255,7 +261,7 @@ class Flat:
         total_flat_records_submitted = len(self.slim_bib_records)
         # This is the number of records read from the flat file.
         update_count = 0
-        with open(slim_file, encoding='ISO-8859-1', mode='w') as s:
+        with open(slim_file, encoding='ISO-8859-1', mode='a') as s:
             for (old_num, new_num) in oclc_updates.items():
                 # Don't update is there was any hint that a problem happened.
                 if not old_num or not new_num:

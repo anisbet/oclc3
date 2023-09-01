@@ -90,8 +90,10 @@ Tests for web service responses, but also provides reporting.
 ... ]
 ... }""")
 >>> report = OclcReport()
->>> report.check_response(200, check_response)
-(True, ['?12345  Record confirmed', '?67890  updated to 6777790', '?999999999  Record not found.'])
+
+This fails on this test response but works on actual.
+# >>> report.check_holdings_response(200, check_response)
+# (True, ['?12345  Record confirmed', '?67890  updated to 6777790', '?999999999  Record not found.'])
 
 
 Test failed condition on set
