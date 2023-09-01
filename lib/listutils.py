@@ -22,7 +22,10 @@
 from os.path import join, dirname, exists, getsize, splitext
 import re
 from os import linesep
-from lib.flat import Flat
+try:
+    from lib.flat import Flat
+except ModuleNotFoundError:
+    from flat import Flat
 
 # Reads simple lists of integers of which the first in the line are added to 
 # a list.

@@ -119,3 +119,6 @@ DEBUG: found an 035 on line 9 (.035.   |a(EPL)on1347755731)
 1 OCLC updates possible from 1 records read.
 
 >>> flat = Flat("../test_data/test6.flat", debug=False, ignore={'250':'Expected release'})
+rejecting ocn11111111111, no OCLC number.
+record epl4444444444 rejected because 250 contains 'Expected release'
+2 OCLC updates possible from 4 records read.
