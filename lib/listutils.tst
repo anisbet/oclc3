@@ -30,10 +30,25 @@ DEBUG: reading ../test_data/r1.csv
 Test reading a flat file for .035. OCoLC numbers.
 >>> flat = FlatListFile("../test_data/test.flat", debug=True)
 DEBUG: reading ../test_data/test.flat
+DEBUG: found document boundary on line 1
+DEBUG: found form description on line 2
+DEBUG: found TCN on1347755731 on line 4
+DEBUG: found an OCLC number (987654321) on line 6
+DEBUG: found an 035 on line 7 (.035.   |a(Sirsi) 111111111)
+DEBUG: found an OCLC number (77777777) on line 8
+*warning, TCN on1347755731 contains multiple OCLC numbers. Only the last will be checked and updated as necessary.
+1 OCLC updates possible from 1 records read.
 >>> flat.get_add_list()
-['+987654321', '+77777777']
+['+77777777']
 >>> flat = FlatListFile("../test_data/test5.flat", debug=True)
 DEBUG: reading ../test_data/test5.flat
+DEBUG: found document boundary on line 1
+DEBUG: found form description on line 2
+DEBUG: found TCN on1347755731 on line 4
+DEBUG: found an OCLC number (769428891) on line 6
+DEBUG: found an 035 on line 7 (.035.   |a(Sirsi) 111111111)
+DEBUG: found an 035 on line 9 (.035.   |a(EPL)on1347755731)
+1 OCLC updates possible from 1 records read.
 >>> flat.get_add_list()
 ['+769428891']
 
@@ -41,8 +56,7 @@ DEBUG: reading ../test_data/test5.flat
 Putting it together...
 >>> from listutils import Lister
 >>> list_reader = Lister("../test_data/test5.flat")
->>> list_reader.is_flat_file()
-True
+1 OCLC updates possible from 1 records read.
 >>> list_reader = Lister("../test_data/r1.csv")
 >>> list_reader.get_list('+')
 ['+267', '+1210', '+1834']
@@ -51,11 +65,6 @@ True
 >>> list_reader = Lister("../test_data/dirty.txt")
 >>> list_reader.get_list('-')
 ['-123456', '-123456', '-7756632', '-7756632', '-654321', '-7756632', '-7756632', '-7756632', '-7756632']
-
-Test you can read a dictionary from the logs produced by oclc.py
->>> list_reader = Lister('../test_data/test1.log')
->>> list_reader.get_updated_numbers()
-{'10211111111': '211111111', '10222222222': '222222222', '10233333333': '233333333'}
 
 Test InstructionManager
 >>> from listutils import InstructionManager

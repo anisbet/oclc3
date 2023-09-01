@@ -42,6 +42,9 @@ class OclcReport:
         self.adds     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.dels     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
         self.bibs     = {'total': 0, 'success': 0, 'warnings':0, 'errors': 0}
+        # Keep track of the updated OCLC numbers. In this case use a dictionary
+        # with format {old: new, ...}
+        self.updates_dict = {}
 
     # Wrapper for the logger. Added after the class was written
     # and to avoid changing tests. 
@@ -114,77 +117,12 @@ class OclcReport:
                     if old_num == new_num:
                         return_str += f"  OCLC number confirmed"
                     else:
+                        self.updates_dict[str(old_num)] = str(new_num)
                         return_str += f"  OCLC number updated to {new_num}"
                         self.holdings['warnings'] += 1
                 return_str += f" See {check_url} for more information."
                 results.append(return_str)
                 self.holdings['total'] += 1
-            except KeyError as ex:
-                try:
-                    reported_error = f"OCLC said: {json_data}"
-                except KeyError as fx:
-                    reported_error = f"JSON: {json_data}"
-                msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-                self.print_or_log(msg, 'error')
-                results.append(msg)
-                # There was a problem with the web service so stop processing.
-                b_result = False
-        # self.print_or_log(results)
-        return b_result, results
-
-    # Interprets the JSON response from the 
-    # worldcat.org/bib/checkcontrolnumbers request. 
-    # param: json response object.
-    # param: debug bool value true if you want more messaging and false for less.
-    # returns: list of requested OCLC numbers with the results of the check 
-    # query for each.
-    # 
-    # For example: ['?12345  success', '?67890  updated to 6777790', 
-    # '?999999999  error Record not found.']
-    def check_response(self, 
-      code:int,
-      json_data:dict, 
-      debug:bool=False):
-        results = []
-        if code < 200 or code > 207:
-            msg = ''
-            try:
-                reported_error = f"OCLC said: {json_data}"
-            except KeyError as ex:
-                reported_error = f"JSON: {json_data}"
-                msg = f"check response failed on {ex} attribute.\n{reported_error}\n"
-            except ValueError:
-                reported_error = f"JSON: was empty!"
-                msg = f"check failed!"
-            self.print_or_log(msg, 'error')
-            self.checks['errors'] += 1
-            return False
-        b_result= True
-        if json_data:
-            if debug:
-                print(f"DEBUG: check got JSON ===>{json_data}")
-            try:
-                entries = json_data['entries']
-                for entry in entries:
-                    title   = entry['title']
-                    old_num = entry['content']['requestedOclcNumber']
-                    new_num = entry['content']['currentOclcNumber']
-                    # code    = int(re.search(r'\b\d{3}\b', entry['content']['status']).group())
-                    found   = entry['content']['found']
-                    return_str = f"?{title}"
-                    if found:
-                        if old_num == new_num:
-                            return_str += f"  Record confirmed"
-                            self.checks['success'] += 1
-                        else:
-                            return_str += f"  updated to {new_num}"
-                            self.checks['warnings'] += 1
-                    else:
-                        detail = entry['content']['detail']
-                        return_str += f"  {detail}"
-                        self.checks['errors'] += 1
-                    results.append(return_str)
-                    self.checks['total'] += 1
             except KeyError as ex:
                 try:
                     reported_error = f"OCLC said: {json_data}"
@@ -233,6 +171,7 @@ class OclcReport:
                         self.adds['success'] += 1
                     else:
                         return_str += f"  updated to {new_num}. See http://worldcat.org/oclc/{new_num}"
+                        self.updates_dict[str(old_num)] = str(new_num)
                         detail = entry['content']['detail']
                         if detail:
                             return_str += f", {detail}"
@@ -349,6 +288,12 @@ class OclcReport:
     # return: dictionary of holdings results.
     def get_check_holdings_results(self) ->dict:
         return self.holdings
+
+    # Gets the dictionary of updated OCLC numbers 
+    # where the key is the old number and the value
+    # is the new number.
+    def get_updated(self) ->dict:
+        return self.updates_dict
 
 if __name__ == "__main__":
     import doctest

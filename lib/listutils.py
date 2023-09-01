@@ -22,6 +22,7 @@
 from os.path import join, dirname, exists, getsize, splitext
 import re
 from os import linesep
+from lib.flat import Flat
 
 # Reads simple lists of integers of which the first in the line are added to 
 # a list.
@@ -37,13 +38,14 @@ from os import linesep
 # ?(OCoLC)7756632  blah   # Check number '7756632'.
 # Random text on a line   # Ignored.
 class SimpleListFile:
-    def __init__(self, fileName:str, debug:bool=False):
+    def __init__(self, fileName:str, debug:bool=False, ignore:dict=None):
         self.list_file = fileName
         self.debug     = debug
         if self.debug:
             print(f"DEBUG: reading {self.list_file}")
         # Test that the class can read this type of list_file
         self.file_path, self.file_ext = splitext(self.list_file)
+        self.ignore_dict = ignore
 
     # Reads and parses the input file returning a list of a given 'type'.
     # Valid types are 'add' and 'del' list. The list is returned with the
@@ -78,8 +80,8 @@ class SimpleListFile:
 # Example:
 # =HYPERLINK("http://www.worldcat.org/oclc/1834", "1834")	Book, Print	Juvenile ...
 class OclcCsvListFile(SimpleListFile):
-    def __init__(self, fileName:str, debug:bool=False):
-        super().__init__(fileName, debug=debug)
+    def __init__(self, fileName:str, debug:bool=False, ignore:dict=None):
+        super().__init__(fileName, debug=debug, ignore=ignore)
 
     def _parse_(self, which:str='-') -> list:
         # In the most basic parser type read a file of integers one per line.
@@ -107,76 +109,28 @@ class OclcCsvListFile(SimpleListFile):
 # .035.   |a(EPL)on1347755731 
 # Parses the number '769428891'
 class FlatListFile(SimpleListFile):
-    def __init__(self, fileName:str, debug:bool=False):
-        super().__init__(fileName, debug=debug)
+    def __init__(self, fileName:str, debug:bool=False, ignore:dict=None):
+        super().__init__(fileName, debug=debug, ignore=ignore)
+        self.flat = Flat(fileName, debug=debug, ignore=ignore)
 
     # Returns all OCLC numbers from each bib record in the flat file - even if the 
     # record contains multiple OCLC numbers.
     def _parse_(self, which:str='+') -> list:
-        # Reads flat files line by line and extracts the .035. with the OCoLC number.
-        numbers = []
-        number_start_pos = len('|a(OCoLC)')
-        num_matcher  = re.compile(r'\|a\(OCoLC\)\d+')
-        with open(self.list_file, encoding='ISO-8859-1', mode='r') as lf:
-            for line in lf:
-                num_match = re.search(num_matcher, line)
-                if num_match:
-                    # Trim off the double-quotes
-                    number = num_match[0][number_start_pos:]
-                    numbers.append(f"{which}{number}")
-        return numbers
+        return list(which + num for num in self.flat.get_local_list())
 
-# Reads oclc.py's log file format and can return a dictionary of
-# original oclc numbers (as keys), and updated OCLC numbers (as values). 
-class LogDictFile:
-    def __init__(self, fileName:str, debug:bool=False) -> dict:
-        self.list_file = fileName
-        self.debug     = debug
-        if self.debug:
-            print(f"DEBUG: reading {self.list_file}")
-    
-    def get_updated(self) -> dict:
-        original_updated_numbers = {}
-        ##############################################
-        # Note: if the log format changes adjust here.
-        ##############################################
-        original_num_regex = re.compile(r'^\+\d+\s')
-        updated_num_regex  = re.compile(r'(updated to)\s\d+\,')
-        num_pos = len('updated to ')
-        add_pos = len('+')
-        with open(self.list_file, encoding='ISO-8859-1', mode='r') as log:
-            line_num = 0
-            for line in log:
-                # Look for lines that contain 'updated to'.
-                # That is the new oclc number. Example:
-                # +1002030249  updated to 968312172, Record not ...
-                # Should return 968312172.
-                new_num_match = re.search(updated_num_regex, line)
-                if not new_num_match:
-                    # Quit search early, there's a lot to do.
-                    continue
-                new_num = new_num_match[0][num_pos:-1]
-                # Look for original number submitted it looks
-                # like '+nnnn...'. Example:
-                # +1002030249  updated to 968312172, Record not ...
-                # Should return +1002030249
-                original_num_match = re.search(original_num_regex, line)
-                if not original_num_match:
-                    continue
-                original_num = original_num_match[0][add_pos:-1]
-                original_updated_numbers[f"{original_num}"] = str(new_num)
-        return original_updated_numbers
-
+    def get_flat_obj(self) -> Flat:
+        return self.flat
 
 # Reads various files extension type and manages the lists that it reads.
 # It can read lists from .txt, .lst, .csv & .tsv (OCLC form), .flat, and
 # .log, oclc.py's own log file format. 
 class Lister:
-    def __init__(self, fileName:str, debug:bool=False):
+    def __init__(self, fileName:str, debug:bool=False, ignore:dict=None):
         self.list_file   = fileName
         self.debug       = debug
         self.list_reader = None
-        self.flat        = False
+        self.flat        = None
+        self.rejected_recs = []
         # Guarding file tests.
         if not exists(self.list_file) or getsize(self.list_file) == 0:
             print(f"The {self.list_file} file is empty (or missing).")
@@ -185,12 +139,12 @@ class Lister:
         if file_ext.lower() == '.csv' or file_ext.lower() == '.tsv':
             self.list_reader = OclcCsvListFile(fileName=fileName, debug=debug)
         elif file_ext.lower() == '.flat':
-            self.list_reader = FlatListFile(fileName=fileName, debug=debug)
-            self.flat = True
+            self.list_reader = FlatListFile(fileName=fileName, debug=debug, ignore=ignore)
+            self.flat = self.list_reader.get_flat_obj()
+            # Records that don't have OCLC numbers. Submit as XML records.
+            self.rejected_recs = self.flat.get_rejected_tcns()
         elif file_ext.lower() == '.txt' or file_ext.lower() == '.lst' or file_ext.lower() == '':
             self.list_reader = SimpleListFile(fileName=fileName, debug=debug)
-        elif file_ext.lower() == '.log':
-            self.list_reader = LogDictFile(fileName=fileName, debug=debug)
         else:
             print(f"*error, file type: '{file_ext}' not supported yet.")
     
@@ -217,16 +171,11 @@ class Lister:
             self.logger.logit(f"*unknown list type request '{action}'!")
             return []
 
-    # Reads the transactions from a log and returns a dictionary 
-    # of originally submitted oclc numbers as keys, and updated
-    # OCLC numbers as values in a dictionary.  
-    def get_updated_numbers(self):
-        return self.list_reader.get_updated()
-
-    # Tests if the lister is managing a flat file or not. 
-    # return: True if the lister read a flat file, and false otherwise.  
-    def is_flat_file(self) ->bool:
-        return self.flat
+    # Looks up the updated old: new OCLC numbers in the flat file
+    # and if found, appends the records to a slim-flat file.
+    def write_updates(self, updated:dict):
+        if self.flat:
+            self.flat.update_and_write_slim_flat(updated)
 
 class InstructionManager:
     def __init__(self, fileName:str, debug:bool=False) -> dict:

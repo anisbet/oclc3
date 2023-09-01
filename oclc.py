@@ -26,10 +26,9 @@ from lib.oclcws import OclcService
 from lib.oclcreport import OclcReport
 from log import Logger
 from lib.listutils import Lister, InstructionManager
-# from lib.flat import Flat
 # from lib.flat2marcxml import MarcXML
 
-VERSION='3.00.01'
+VERSION='3.02.00'
 
 # Loads the yaml file for configs.
 # param: path of the yaml file. 
@@ -117,6 +116,7 @@ def add_holdings(
     ws = OclcService(configs, debug=debug)
     report = OclcReport(debug=debug)
     done_list = []
+    updated_dict = {}
     while oclc_numbers:
         param_str, status_code, content = ws.set_institution_holdings(oclc_numbers)
         done = param_str.split(',')
@@ -126,6 +126,7 @@ def add_holdings(
         went_okay, messages = report.set_response(code=status_code, json_data=content, debug=debug)
         if went_okay:
             logger.logem(messages)
+            updated_dict = report.get_updated()
         else:
             msg = f"The web service stopped while setting holdings:\n{last_oclc_number}"
             logger.logit(msg, level='error', include_timestamp=True)
@@ -133,7 +134,7 @@ def add_holdings(
         done_list.extend(done)
     r_dict = report.get_set_holdings_results()
     print_tally('add / set', r_dict, logger)
-    return done_list
+    return done_list, updated_dict
 
 # Checks list of OCLC control numbers as part of the institutional holdings.
 # param: oclc number list of holdings to set.
@@ -211,48 +212,6 @@ def delete_holdings(
 
 # Main entry to the application if not testing.
 def main(argv):
-    
-#     hints_msg = '''
-#     Any file specified with --add, --delete, --check will have numbers extracted using methods appropriate to
-#     the extension of the file used. For example the app will extract the OCLC number from the appropriate '.035.'
-#     field of the record(s) in a flat file. In that case the first sub-field 'a' is assumed to be the OCLC number.
-
-#     CSV (or TSV) files are assumed to be OCLC holding reports converted from XSLX (see Readme.md for instructions).
-#     Currently these reports start with '=HYPERLINK...' and the OCLC number is extracted from the alt text of the
-#     first field.
-
-#     All other file formats are assumed to contain OCLC numbers somewhere on each line and the first number match
-#     is assumed to be the OCLC number. See Readme.md for more information and limitations.
-
-#     Supported list files are 
-#       * '.flat'
-#       * '.lst'
-#       * '.txt'
-#       * '.csv/.tsv'
-#     The last two are the formats that OCLC uses in their holdings reports.
-
-#     You may supply an --add and/or --delete file. In any case duplicate requests are removed, and conflicting
-#     requests are neutralized. For example, requesting '1111111' in an --add and --delete list will output an
-#     instruction of ' 1111111', which will not be submitted to OCLC since it would count against quotas.
-
-#     YAML Files
-#     ----------
-# # Test YAML
-# author:          'Andrew Nisbet'
-# service: 
-#   name:          'WCMetaDataTest'
-#   clientId:      '[supplied by OCLC]'
-#   secret:        '[supplied by OCLC]'
-#   registryId:    '[supplied by OCLC]'
-#   principalId:   '[supplied by OCLC]'
-#   principalIdns: 'urn:oclc:wms:da'
-#   institutionalSymbol: 'OCPSB'
-#   branchName:    'MAIN'
-# ignoreTags: 
-#   '250': 'Expected release'
-# hitsQuota:       100
-# dataDir:         'data'
-#     '''
     parser = argparse.ArgumentParser(
         prog = 'oclc',
         usage='%(prog)s [options]' ,
@@ -307,9 +266,9 @@ dataDir:         'data'
     parser.add_argument('-d', '--debug', action='store_true', default=False, help='turn on debugging.')
     parser.add_argument('--delete', action='store', metavar='[/foo/oclc_nums.lst]', help='List of OCLC numbers to delete from OCLC\'s holdings database.')
     parser.add_argument('--done', action='store', metavar='[/foo/completed.lst]', help='Used if the process was interrupted.')
-    parser.add_argument('--instructions', action='store', metavar='[/foo/instructions.lst]', help='OCLC update instructions file name.')
+    parser.add_argument('--save_as', action='store', metavar='[/foo/save_as.lst]', help='OCLC save_as instructions file name.')
     parser.add_argument('--log', action='store', default='oclc.log', metavar='[/foo/oclc_YYYY-MM-DD.log]', help=f"Log file.")
-    parser.add_argument('--run', action='store', metavar='[/foo/instructions.lst]', help=f"File that contains instructions to update WorldCat holdings.")
+    parser.add_argument('--run', action='store', metavar='[/foo/save_as.lst]', help=f"File that contains instructions to update WorldCat holdings.")
     parser.add_argument('--version', action='version', version='%(prog)s ' + VERSION)
     parser.add_argument('-y', '--yaml', action='store', default='test.yaml', metavar='[/foo/prod.yaml]', help='alternate YAML file for testing. Default to "test.yaml"')
     args = parser.parse_args()
@@ -325,6 +284,7 @@ dataDir:         'data'
             sys.exit()
         logger = Logger(log_file=args.log)
         hits_quota = configs.get('hitsQuota')
+        ignore_dict = configs.get('ignoreTags')
         logger.logit(f"=== starting version {VERSION}", include_timestamp=True)
     else:
         sys.stderr.write(f"*error, required (YAML) configuration file not found! No such file: '{yaml_file}'.\n")
@@ -337,10 +297,11 @@ dataDir:         'data'
         logger.logit(f"check: '{args.check}'")
         logger.logit(f"done: '{args.done}'")
         logger.logit(f"debug: '{args.debug}'")
-        logger.logit(f"instructions: '{args.instructions}'")
+        logger.logit(f"save_as: '{args.save_as}'")
         logger.logit(f"run: '{args.run}'")
         logger.logit(f"yaml: '{yaml_file}'")
         logger.logit(f"hits quota: '{hits_quota}'")
+        logger.logit(f"ignoreTags: '{ignore_dict}'")
         logger.logit(f"== vars ==\n")
 
     # Upload XML MARC21 records.
@@ -357,33 +318,37 @@ dataDir:         'data'
     unset_holdings_lst = []
     check_holdings_lst = []
     done_lst           = []
+    lister             = None
 
     # Add records to institution's holdings.
     if args.add:
-        lister = Lister(args.add, debug=args.debug)
+        lister = Lister(args.add, debug=args.debug, ignore=ignore_dict)
         set_holdings_lst = lister.get_list('+')
         
     # delete records from institutional holdings.
     if args.delete:
-        lister = Lister(args.delete, debug=args.debug)
+        lister = Lister(args.delete, debug=args.debug, ignore=ignore_dict)
         unset_holdings_lst = lister.get_list('-')
 
     # Create a list of oclc numbers to check a list of holdings.
     if args.check:
-        lister = Lister(args.check, debug=args.debug)
+        lister = Lister(args.check, debug=args.debug, ignore=ignore_dict)
         check_holdings_lst = lister.get_list('?')
 
     if args.done:
-        lister = Lister(args.done, debug=args.debug)
+        lister = Lister(args.done, debug=args.debug, ignore=ignore_dict)
         done_lst = lister.get_list('!')
 
-    if args.instructions:
+    if not args.save_as and not args.run:
+        logger.logit(f"Warning, nothing to do. Either use --save_as or --run. See --help for more information.")
+
+    if args.save_as:
         # Merge any and all lists and write out instructions.
-        instruction_manager = InstructionManager(args.instructions, debug=args.debug)
+        instruction_manager = InstructionManager(args.save_as, debug=args.debug)
         instruction_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
-        # Output the instructions list. 
+        # Output the save_as list. 
         instruction_manager.write_instructions(instruction_list)
-    elif args.run:
+    if args.run:
         # Load instruction list specified by args.run. 
         instruction_manager = InstructionManager(args.run, debug=args.debug)
         set_holdings_lst    = instruction_manager.read_instruction_numbers('+')
@@ -391,7 +356,6 @@ dataDir:         'data'
         check_holdings_lst  = instruction_manager.read_instruction_numbers('?')
         # If there are done items in the file, mark them done for when we write to '.completed'.
         done_lst            = list('!' + num for num in instruction_manager.read_instruction_numbers('!'))
-        
         # Call the web service with the appropriate list, and capture results.
         try:
             if args.debug:
@@ -406,12 +370,19 @@ dataDir:         'data'
                 done_lst.extend(list('!' + num for num in done))
             if set_holdings_lst:
                 set_holdings_lst = set_holdings_lst[0:int(hits_quota)]
-                done = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
+                done, updated = add_holdings(set_holdings_lst, configs=configs, logger=logger, debug=args.debug)
                 done_lst.extend(list('!' + num for num in done))
+                # Write out any updated oclc numbers to flat slim.
+                # TODO: Currently one must use the --add --save_as AND --run 
+                # for the lister below to have a valid flatLister. 
+                # Can this be made simpler?? Can we use --flat or 
+                if updated and lister:
+                    lister.write_updates(updated)
+
             # Write out the lists
             instruction_manager = InstructionManager(args.run + '.completed', debug=args.debug)
             completed_list = instruction_manager.merge(set_holdings_lst, unset_holdings_lst, check_holdings_lst, done_lst)
-            # Output the completed instructions list. Note this won't include numbers beyond quotas.
+            # Output the completed save_as list. Note this won't include numbers beyond quotas.
             instruction_manager.write_instructions(completed_list)
             logger.logit('done', include_timestamp=True)
         except KeyboardInterrupt:
@@ -426,8 +397,7 @@ dataDir:         'data'
             instruction_manager.write_instructions(complete_incomplete_list)
             logger.logit('!Warning, received keyboard interrupt!\nSaving work done.', level='error', include_timestamp=True)
             logger.logit('exited on <ctrl> + C interrupt.', include_timestamp=True)
-    else:
-        logger.logit(f"Warning, nothing to do. Either use --instructions or --run. See --help for more information.")
+    
         
 if __name__ == "__main__":
     main(sys.argv[1:])
